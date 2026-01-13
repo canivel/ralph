@@ -13,8 +13,26 @@ function run(cmd, args, options = {}) {
   }
 }
 
-const agents = ["codex", "claude", "droid", "opencode"];
+const agents = [
+  { name: "codex", bin: "codex" },
+  { name: "claude", bin: "claude" },
+  { name: "droid", bin: "droid" },
+  { name: "opencode", bin: "opencode" },
+];
+const runnable = [];
+const skipped = [];
 for (const agent of agents) {
+  const check = spawnSync(`command -v ${agent.bin}`, { shell: true, stdio: "ignore" });
+  if (check.status === 0) {
+    runnable.push(agent.name);
+  } else {
+    skipped.push(agent.name);
+  }
+}
+if (skipped.length) {
+  console.log(`Skipping ping for missing agents: ${skipped.join(", ")}`);
+}
+for (const agent of runnable) {
   run(process.execPath, [cliPath, "ping", `--agent=${agent}`]);
 }
 

@@ -193,16 +193,16 @@ async function runInstallSkills() {
   const { intro, outro, select, isCancel } = await import("@clack/prompts");
   intro("Ralph skills install");
 
-    const agent = await select({
-      message: "Which agent are you using?",
-      options: [
-        { value: "codex", label: "codex" },
-        { value: "claude", label: "claude" },
-        { value: "droid", label: "droid" },
-        { value: "opencode", label: "opencode" },
-      ],
-      initialValue: agentOverride || "codex",
-    });
+  const agent = await select({
+    message: "Which agent are you using?",
+    options: [
+      { value: "codex", label: "codex" },
+      { value: "claude", label: "claude" },
+      { value: "droid", label: "droid" },
+      { value: "opencode", label: "opencode" },
+    ],
+    initialValue: agentOverride || "codex",
+  });
   if (isCancel(agent)) {
     outro("Cancelled.");
     process.exit(0);
@@ -359,7 +359,7 @@ async function main() {
       codex: "codex --yolo {prompt}",
       claude: "claude --dangerously-skip-permissions {prompt}",
       droid: "droid --skip-permissions-unsafe {prompt}",
-      opencode: "opencode run \"{prompt}\"",
+      opencode: "opencode --prompt {prompt}",
     };
     const agentsPath = path.join(templateDir, "agents.sh");
     if (!exists(agentsPath)) {
