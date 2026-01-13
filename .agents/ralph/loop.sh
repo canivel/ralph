@@ -39,7 +39,6 @@ if [[ -f "$agents_path" ]]; then
   source "$agents_path"
 fi
 
-DEFAULT_AGENT_CMD="${AGENT_CODEX_CMD:-codex exec --yolo --skip-git-repo-check -}"
 DEFAULT_MAX_ITERATIONS=25
 DEFAULT_NO_COMMIT=false
 PRD_REQUEST_PATH=""
@@ -50,6 +49,26 @@ if [ -f "$CONFIG_FILE" ]; then
   # shellcheck source=/dev/null
   . "$CONFIG_FILE"
 fi
+
+DEFAULT_AGENT_NAME="${DEFAULT_AGENT:-codex}"
+resolve_agent_cmd() {
+  local name="$1"
+  case "$name" in
+    claude)
+      echo "${AGENT_CLAUDE_CMD:-claude -p --dangerously-skip-permissions \"\$(cat {prompt})\"}"
+      ;;
+    droid)
+      echo "${AGENT_DROID_CMD:-droid exec --skip-permissions-unsafe -f {prompt}}"
+      ;;
+    codex|"")
+      echo "${AGENT_CODEX_CMD:-codex exec --yolo --skip-git-repo-check -}"
+      ;;
+    *)
+      echo "${AGENT_CODEX_CMD:-codex exec --yolo --skip-git-repo-check -}"
+      ;;
+  esac
+}
+DEFAULT_AGENT_CMD="$(resolve_agent_cmd "$DEFAULT_AGENT_NAME")"
 
 PRD_PATH="${PRD_PATH:-$DEFAULT_PRD_PATH}"
 PLAN_PATH="${PLAN_PATH:-$DEFAULT_PLAN_PATH}"
@@ -662,6 +681,10 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     CMD_STATUS=$?
   fi
   set -e
+  if [ "$CMD_STATUS" -eq 130 ] || [ "$CMD_STATUS" -eq 143 ]; then
+    echo "Interrupted."
+    exit "$CMD_STATUS"
+  fi
   ITER_END=$(date +%s)
   ITER_END_FMT=$(date '+%Y-%m-%d %H:%M:%S')
   ITER_DURATION=$((ITER_END - ITER_START))

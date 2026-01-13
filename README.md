@@ -122,7 +122,7 @@ Set `AGENT_CMD` in `.agents/ralph/config.sh` to switch agents:
 
 ```
 AGENT_CMD="codex exec --yolo -"
-AGENT_CMD="claude -p --dangerously-skip-permissions \"$(cat {prompt})\""
+AGENT_CMD="claude -p --dangerously-skip-permissions \"\$(cat {prompt})\""
 AGENT_CMD="droid exec --skip-permissions-unsafe -f {prompt}"
 ```
 

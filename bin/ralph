@@ -34,11 +34,11 @@ function usage() {
 Commands:
   install [--skills] [--force]        Copy .agents/ralph into the current repo
   prd ["<request>"] [--out path]      Generate a PRD via agent
-  ping                               Minimal agent health check
-  log "<message>"                    Append to .ralph/activity.log
+  ping                                Minimal agent health check
+  log "<message>"                     Append to .ralph/activity.log
   build [n] [--no-commit]             Run build loop (default)
   plan [n]                            Run planning loop
-  help                               Show this message
+  help                                Show this message
 
 Options:
   --prd <path>                        Override PRD path
