@@ -2,9 +2,9 @@
 
 ![Ralph](ralph.webp)
 
-Ralph is a minimal, file‑based agent loop for autonomous coding. Each iteration starts fresh, reads the same on‑disk state, and commits work for one story at a time.
+Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration starts fresh, reads the same on-disk state, and commits work for one story at a time.
 
-> **Note:** This is a fork of [@iannuttall/ralph](https://github.com/iannuttall/ralph) with improved agent support and first-run configuration.
+> **Fork Note:** This is a fork of [@iannuttall/ralph](https://github.com/iannuttall/ralph) with improved agent support and first-run configuration.
 
 ## What's New in This Fork
 
@@ -14,13 +14,13 @@ Ralph is a minimal, file‑based agent loop for autonomous coding. Each iteratio
 - **Better Windows compatibility** - Fixed shell quoting issues
 - **Global config storage** - Settings persist in `~/.ralph/config.json`
 
-## How it works
+## How It Works
 
 Ralph treats **files and git** as memory, not the model context:
 
-- **PRD (JSON)** defines stories, gates, and status
-- **Loop** executes one story per iteration
-- **State** persists in `.ralph/`
+- **PRD (JSON)** - Defines stories, quality gates, and status
+- **Loop** - Executes one story per iteration
+- **State** - Persists in `.ralph/` directory
 
 ![Ralph architecture](diagram.svg)
 
@@ -32,7 +32,7 @@ Ralph treats **files and git** as memory, not the model context:
 npm i -g @canivel/ralph
 ```
 
-### From source (development)
+### From source
 
 ```bash
 git clone https://github.com/canivel/ralph.git
@@ -41,14 +41,31 @@ npm install
 npm link
 ```
 
+### Prerequisites
+
+You need at least one AI agent CLI installed:
+
+| Agent | Install Command |
+|-------|-----------------|
+| Claude | `curl -fsSL https://claude.ai/install.sh \| bash` |
+| Codex | `npm i -g @openai/codex` |
+| Droid | `curl -fsSL https://app.factory.ai/cli \| sh` |
+| OpenCode | `curl -fsSL https://opencode.ai/install.sh \| bash` |
+
 ## Quick Start
 
 ```bash
-ralph prd      # Generate a PRD (first run prompts for agent selection)
-ralph build 1  # Run one build iteration
+# 1. Navigate to your project
+cd my-project
+
+# 2. Generate a PRD (first run prompts for agent selection)
+ralph prd "A task management app with projects and due dates"
+
+# 3. Build one story at a time
+ralph build 1
 ```
 
-On first run, you'll be prompted to select your default agent:
+On first run, you'll see the agent selection prompt:
 
 ```
 Ralph Configuration
@@ -61,219 +78,183 @@ Ralph Configuration
 
 ## Commands
 
-```
-ralph install [--skills] [--force]   Copy .agents/ralph into the current repo
-ralph prd ["<request>"] [--out path] Generate a PRD (JSON) via agent
-ralph build [n] [--no-commit]        Run build loop (default)
-ralph overview                       Render a human overview from PRD JSON
-ralph config                         Configure default agent
-ralph ping                           Minimal agent health check
-ralph log "<message>"                Append to .ralph/activity.log
-ralph help                           Show help message
-```
+| Command | Description |
+|---------|-------------|
+| `ralph prd ["<request>"]` | Generate a PRD JSON file via agent |
+| `ralph build [n]` | Run n build iterations (default: continuous) |
+| `ralph config` | Configure or change default agent |
+| `ralph install` | Copy templates to current repo for customization |
+| `ralph install --skills` | Install required skills (commit, dev-browser, prd) |
+| `ralph overview` | Generate human-readable overview from PRD |
+| `ralph ping` | Health check for agent connectivity |
+| `ralph log "<message>"` | Append to activity log |
+| `ralph help` | Show help message |
 
 ### Options
 
-```
---prd <path>                         Override PRD path
---out <path>                         Override PRD output path (prd command)
---progress <path>                    Override progress log path
---agent <codex|claude|droid|opencode> Override agent runner
-```
+| Option | Description |
+|--------|-------------|
+| `--agent <name>` | Override agent (codex, claude, droid, opencode) |
+| `--prd <path>` | Override PRD file path |
+| `--out <path>` | Override PRD output path (for `prd` command) |
+| `--progress <path>` | Override progress log path |
+| `--no-commit` | Dry run without committing (for `build` command) |
+| `--force` | Force overwrite (for `install` command) |
 
-## Template hierarchy
+## Usage Examples
 
-Ralph will look for templates in this order:
-
-1. `.agents/ralph/` in the current project (if present)
-2. Bundled defaults shipped with this repo
-
-State and logs always go to `.ralph/` in the project.
-
-### Install templates into a project (optional overrides)
+### Generate a PRD
 
 ```bash
-ralph install
-```
-
-This creates `.agents/ralph/` in the current repo so you can customize prompts and loop behavior. During install, you'll be asked if you want to add the required skills.
-
-### Install required skills (optional)
-
-```bash
-ralph install --skills
-```
-
-You'll be prompted for agent (codex/claude/droid/opencode) and local vs global install. Skills installed: **commit**, **dev-browser**, **prd**.
-If you skipped skills during `ralph install`, you can run `ralph install --skills` anytime.
-
-## PRD Generation
-
-Create your PRD (JSON) or generate one:
-```bash
+# Interactive mode - prompts for description
 ralph prd
-```
-Requires the **prd** skill (install via `ralph install --skills`).
 
-Example prompt text:
-```
-A lightweight uptime monitor (Hono app), deployed on Cloudflare, with email alerts via AWS SES
-```
+# Direct mode - pass description as argument
+ralph prd "A REST API for user authentication with JWT tokens"
 
-Default output (agent chooses a short filename in `.agents/tasks/`):
-```
-.agents/tasks/prd-<short>.json
+# Specify output path
+ralph prd --out .agents/tasks/prd-auth.json "Auth API"
 ```
 
-Override PRD output:
+### Build Stories
+
 ```bash
-ralph prd --out .agents/tasks/prd-api.json
-```
-
-Optional human overview (generated from JSON):
-```bash
-ralph overview
-```
-This writes a tiny overview alongside the PRD: `prd-<slug>.overview.md`.
-
-## Build Loop
-
-Run one build iteration:
-```bash
+# Build one story
 ralph build 1
-```
 
-No‑commit dry run:
-```bash
+# Build 5 stories
+ralph build 5
+
+# Dry run (no commits)
 ralph build 1 --no-commit
+
+# Use specific PRD file
+ralph build 1 --prd .agents/tasks/prd-auth.json
+
+# Override agent for this run
+ralph build 1 --agent codex
 ```
 
-PRD story status fields are updated automatically by the loop:
-- `open` → selectable
-- `in_progress` → locked by a running loop (with `startedAt`)
-- `done` → completed (with `completedAt`)
-
-If a loop crashes and a story stays `in_progress`, you can set `STALE_SECONDS` in `.agents/ralph/config.sh` to allow Ralph to automatically reopen stalled stories.
-
-## Override PRD paths
-
-You can point Ralph at a different PRD JSON file via CLI flags:
+### Configuration
 
 ```bash
-ralph build 1 --prd .agents/tasks/prd-api.json
-```
-
-Optional progress override:
-
-```bash
-ralph build 1 --progress .ralph/progress-api.md
-```
-
-If multiple PRD JSON files exist in `.agents/tasks/` and you omit `--prd`, Ralph will prompt you to choose.
-
-Optional config file (if you installed templates):
-
-```
-.agents/ralph/config.sh
-```
-
-## Choose the agent runner
-
-On first run, Ralph will prompt you to select your default agent. To change it later:
-
-```bash
+# Change default agent
 ralph config
-```
 
-Or set `AGENT_CMD` in `.agents/ralph/config.sh` to switch agents:
+# Install templates for customization
+ralph install
 
-```
-AGENT_CMD="codex exec --yolo -"
-AGENT_CMD="claude -p --dangerously-skip-permissions \"\$(cat {prompt})\""
-AGENT_CMD="droid exec --skip-permissions-unsafe -f {prompt}"
-AGENT_CMD="opencode run \"$(cat {prompt})\""
-```
-
-Or override per run:
-
-```bash
-ralph prd --agent=codex
-ralph build 1 --agent=codex
-ralph build 1 --agent=claude
-ralph build 1 --agent=droid
-ralph build 1 --agent=opencode
-```
-
-If the CLI isn't installed, Ralph prints install hints:
-
-```
-codex    -> npm i -g @openai/codex
-claude   -> curl -fsSL https://claude.ai/install.sh | bash
-droid    -> curl -fsSL https://app.factory.ai/cli | sh
-opencode -> curl -fsSL https://opencode.ai/install.sh | bash
+# Install skills (commit, dev-browser, prd)
+ralph install --skills
 ```
 
 ## Configuration
 
-Ralph stores global configuration in `~/.ralph/config.json`:
+### Global Config
+
+Ralph stores global settings in `~/.ralph/config.json`:
 
 ```json
 {
   "defaultAgent": "claude",
-  "configuredAt": "2025-01-19T12:00:00.000Z"
+  "configuredAt": "2026-01-19T12:00:00.000Z"
 }
 ```
 
-To reconfigure:
+To change your default agent:
+
 ```bash
 ralph config
 ```
 
-## State files (.ralph/)
+### Project Config
 
-- `progress.md` — append‑only progress log
-- `guardrails.md` — "Signs" (lessons learned)
-- `activity.log` — activity + timing log
-- `errors.log` — repeated failures and notes
-- `runs/` — raw run logs + summaries
-
-## Notes
-
-- `.agents/ralph` is portable and can be copied between repos.
-- `.ralph` is per‑project state.
-- Use `{prompt}` in `AGENT_CMD` when agent needs a file path instead of stdin.
-- Examples: see `examples/commands.md`.
-- **OpenCode server mode**: For faster performance with OpenCode, run `opencode serve` in a separate terminal and uncomment the `AGENT_OPENCODE_CMD` lines in `.agents/ralph/agents.sh` to use `--attach http://localhost:4096`. This avoids cold boot on every run.
-
-## Tests
-
-Dry-run smoke tests (no agent required):
+After running `ralph install`, you can customize behavior in `.agents/ralph/config.sh`:
 
 ```bash
+# Override agent command
+AGENT_CMD="claude -p --dangerously-skip-permissions \"\$(cat {prompt})\""
+
+# Build settings
+NO_COMMIT=false
+MAX_ITERATIONS=25
+STALE_SECONDS=0
+```
+
+## Template Hierarchy
+
+Ralph looks for templates in this order:
+
+1. `.agents/ralph/` in current project (if present)
+2. Bundled defaults from the package
+
+State and logs always go to `.ralph/` in the project.
+
+## PRD Story Status
+
+The build loop automatically updates story status:
+
+| Status | Meaning |
+|--------|---------|
+| `open` | Available for selection |
+| `in_progress` | Currently being worked on (with `startedAt`) |
+| `done` | Completed (with `completedAt`) |
+
+If a loop crashes while a story is `in_progress`, set `STALE_SECONDS` in config to auto-reopen stalled stories.
+
+## State Files
+
+All state is stored in `.ralph/` in your project:
+
+| File | Purpose |
+|------|---------|
+| `progress.md` | Append-only progress log |
+| `guardrails.md` | Lessons learned ("Signs") |
+| `activity.log` | Activity and timing log |
+| `errors.log` | Repeated failures and notes |
+| `runs/` | Raw run logs and summaries |
+
+## Advanced
+
+### Multiple PRD Files
+
+If you have multiple PRD JSON files in `.agents/tasks/` and don't specify `--prd`, Ralph will prompt you to choose.
+
+### OpenCode Server Mode
+
+For faster performance with OpenCode, run `opencode serve` in a separate terminal and uncomment the server mode lines in `.agents/ralph/agents.sh`:
+
+```bash
+AGENT_OPENCODE_CMD="opencode run --attach http://localhost:4096 \"\$(cat {prompt})\""
+```
+
+### Custom Agent Commands
+
+Use `{prompt}` placeholder when the agent needs a file path instead of stdin:
+
+```bash
+AGENT_CMD="my-agent --file {prompt}"
+```
+
+## Development
+
+### Running Tests
+
+```bash
+# Dry-run smoke tests (no agent required)
 npm test
-```
 
-Fast agent health check (real agent call, minimal output):
-
-```bash
+# Fast agent health check
 npm run test:ping
-```
 
-Optional integration test (requires agents installed):
-
-```bash
+# Integration tests (requires agents)
 RALPH_INTEGRATION=1 npm test
-```
 
-Full real-agent loop test:
-
-```bash
+# Full real-agent loop test
 npm run test:real
 ```
 
-## Publishing to npm
-
-To publish this package:
+### Publishing
 
 ```bash
 npm login
