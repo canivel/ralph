@@ -140,13 +140,14 @@ async function promptForDefaultAgent(currentDefault) {
 }
 
 async function ensureFirstRunConfig() {
-  // Skip if not interactive TTY
-  if (!process.stdout.isTTY || !process.stdin.isTTY) return null;
-
+  // Always check config first - return configured agent if available
   const config = loadGlobalConfig();
   if (config.defaultAgent) {
     return config.defaultAgent;
   }
+
+  // Skip prompting if not interactive TTY
+  if (!process.stdout.isTTY || !process.stdin.isTTY) return null;
 
   // First run - prompt for agent selection
   const agent = await promptForDefaultAgent("claude");
@@ -752,7 +753,7 @@ async function main() {
     env.PRD_PATH = resolvedPrdPath;
   }
 
-  const result = spawnSync(loopPath, loopArgs, {
+  const result = spawnSync("bash", [loopPath, ...loopArgs], {
     stdio: "inherit",
     env,
   });

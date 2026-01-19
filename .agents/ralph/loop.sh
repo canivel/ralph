@@ -75,30 +75,30 @@ resolve_agent_cmd() {
   case "$name" in
     claude)
       if [ "$interactive" = "1" ]; then
-        echo "${AGENT_CLAUDE_INTERACTIVE_CMD:-claude --dangerously-skip-permissions {prompt}}"
+        echo "${AGENT_CLAUDE_INTERACTIVE_CMD:-"claude --dangerously-skip-permissions {prompt}"}"
       else
-        echo "${AGENT_CLAUDE_CMD:-claude -p --dangerously-skip-permissions {prompt}}"
+        echo "${AGENT_CLAUDE_CMD:-"claude -p --dangerously-skip-permissions {prompt}"}"
       fi
       ;;
     droid)
       if [ "$interactive" = "1" ]; then
-        echo "${AGENT_DROID_INTERACTIVE_CMD:-droid --skip-permissions-unsafe {prompt}}"
+        echo "${AGENT_DROID_INTERACTIVE_CMD:-"droid --skip-permissions-unsafe {prompt}"}"
       else
-        echo "${AGENT_DROID_CMD:-droid exec --skip-permissions-unsafe -f {prompt}}"
+        echo "${AGENT_DROID_CMD:-"droid exec --skip-permissions-unsafe -f {prompt}"}"
       fi
       ;;
     codex|"")
       if [ "$interactive" = "1" ]; then
-        echo "${AGENT_CODEX_INTERACTIVE_CMD:-codex --yolo {prompt}}"
+        echo "${AGENT_CODEX_INTERACTIVE_CMD:-"codex --yolo {prompt}"}"
       else
         echo "${AGENT_CODEX_CMD:-codex exec --yolo --skip-git-repo-check -}"
       fi
       ;;
     opencode)
       if [ "$interactive" = "1" ]; then
-        echo "${AGENT_OPENCODE_INTERACTIVE_CMD:-opencode --prompt {prompt}}"
+        echo "${AGENT_OPENCODE_INTERACTIVE_CMD:-"opencode --prompt {prompt}"}"
       else
-        echo "${AGENT_OPENCODE_CMD:-opencode run {prompt}}"
+        echo "${AGENT_OPENCODE_CMD:-"opencode run {prompt}"}"
       fi
       ;;
     *)
@@ -127,7 +127,8 @@ STALE_SECONDS="${STALE_SECONDS:-$DEFAULT_STALE_SECONDS}"
 
 abs_path() {
   local p="$1"
-  if [[ "$p" = /* ]]; then
+  # Check for Unix absolute path (starts with /) or Windows absolute path (contains :)
+  if [[ "$p" = /* ]] || [[ "$p" == *:* ]]; then
     echo "$p"
   else
     echo "$ROOT_DIR/$p"
