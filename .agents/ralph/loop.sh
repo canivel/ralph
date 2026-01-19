@@ -50,22 +50,42 @@ fi
 DEFAULT_AGENT_NAME="${DEFAULT_AGENT:-codex}"
 resolve_agent_cmd() {
   local name="$1"
+  local interactive="${2:-0}"
   case "$name" in
     claude)
-      echo "${AGENT_CLAUDE_CMD:-claude -p --dangerously-skip-permissions \"\$(cat {prompt})\"}"
+      if [ "$interactive" = "1" ]; then
+        echo "${AGENT_CLAUDE_INTERACTIVE_CMD:-claude --dangerously-skip-permissions {prompt}}"
+      else
+        echo "${AGENT_CLAUDE_CMD:-claude -p --dangerously-skip-permissions {prompt}}"
+      fi
       ;;
     droid)
-      echo "${AGENT_DROID_CMD:-droid exec --skip-permissions-unsafe -f {prompt}}"
+      if [ "$interactive" = "1" ]; then
+        echo "${AGENT_DROID_INTERACTIVE_CMD:-droid --skip-permissions-unsafe {prompt}}"
+      else
+        echo "${AGENT_DROID_CMD:-droid exec --skip-permissions-unsafe -f {prompt}}"
+      fi
       ;;
     codex|"")
-      echo "${AGENT_CODEX_CMD:-codex exec --yolo --skip-git-repo-check -}"
+      if [ "$interactive" = "1" ]; then
+        echo "${AGENT_CODEX_INTERACTIVE_CMD:-codex --yolo {prompt}}"
+      else
+        echo "${AGENT_CODEX_CMD:-codex exec --yolo --skip-git-repo-check -}"
+      fi
+      ;;
+    opencode)
+      if [ "$interactive" = "1" ]; then
+        echo "${AGENT_OPENCODE_INTERACTIVE_CMD:-opencode --prompt {prompt}}"
+      else
+        echo "${AGENT_OPENCODE_CMD:-opencode run {prompt}}"
+      fi
       ;;
     *)
       echo "${AGENT_CODEX_CMD:-codex exec --yolo --skip-git-repo-check -}"
       ;;
   esac
 }
-DEFAULT_AGENT_CMD="$(resolve_agent_cmd "$DEFAULT_AGENT_NAME")"
+DEFAULT_AGENT_CMD="$(resolve_agent_cmd "$DEFAULT_AGENT_NAME" 0)"
 
 PRD_PATH="${PRD_PATH:-$DEFAULT_PRD_PATH}"
 PROGRESS_PATH="${PROGRESS_PATH:-$DEFAULT_PROGRESS_PATH}"
@@ -195,13 +215,12 @@ done
 PROMPT_FILE="$PROMPT_BUILD"
 
 if [ "$MODE" = "prd" ]; then
-  PRD_USE_INLINE=1
+  # For PRD mode, use interactive agent command (file-based with {prompt} placeholder)
   if [ -z "${PRD_AGENT_CMD:-}" ]; then
-    PRD_AGENT_CMD="$AGENT_CMD"
-    PRD_USE_INLINE=0
+    PRD_AGENT_CMD="$(resolve_agent_cmd "$DEFAULT_AGENT_NAME" 1)"
   fi
   if [ "${RALPH_DRY_RUN:-}" != "1" ]; then
-    require_agent "${PRD_AGENT_CMD:-$AGENT_CMD}"
+    require_agent "${PRD_AGENT_CMD}"
   fi
 
   if [[ "$PRD_PATH" == *.json ]]; then
@@ -237,29 +256,56 @@ if [ "$MODE" = "prd" ]; then
   fi
 
   PRD_PROMPT_FILE="$TMP_DIR/prd-prompt-$(date +%Y%m%d-%H%M%S)-$$.md"
+  # Look for prd skill in project skills or ralph bundled skills
+  PRD_SKILL_FILE=""
+  for skill_path in "$ROOT_DIR/.claude/skills/prd/SKILL.md" "$ROOT_DIR/skills/prd/SKILL.md" "$SCRIPT_DIR/../skills/prd/SKILL.md"; do
+    if [[ -f "$skill_path" ]]; then
+      PRD_SKILL_FILE="$skill_path"
+      break
+    fi
+  done
+  # Also check ralph's bundled skills directory
+  if [[ -z "$PRD_SKILL_FILE" ]]; then
+    ralph_skills_dir="$(cd "$SCRIPT_DIR/../.." 2>/dev/null && pwd)/skills/prd/SKILL.md"
+    if [[ -f "$ralph_skills_dir" ]]; then
+      PRD_SKILL_FILE="$ralph_skills_dir"
+    fi
+  fi
   {
     echo "You are an autonomous coding agent."
-    echo "Use the \$prd skill to create a Product Requirements Document in JSON."
+    echo ""
+    # Include the PRD skill instructions if available
+    if [[ -n "$PRD_SKILL_FILE" && -f "$PRD_SKILL_FILE" ]]; then
+      cat "$PRD_SKILL_FILE"
+      echo ""
+      echo "---"
+      echo ""
+    fi
+    echo "# Output Requirements"
+    echo ""
     if [[ "$PRD_PATH" == *.json ]]; then
-      echo "Save the PRD to: $PRD_PATH"
+      echo "Save the PRD JSON to: $PRD_PATH"
     else
       echo "Save the PRD as JSON in directory: $PRD_PATH"
       echo "Filename rules: prd-<short-slug>.json using 1-3 meaningful words."
       echo "Examples: prd-workout-tracker.json, prd-usage-billing.json"
     fi
-    echo "Do NOT implement anything."
-    echo "After creating the PRD, end with:"
+    echo ""
+    echo "Do NOT implement anything. Only generate the JSON PRD file."
+    echo ""
+    echo "After saving the PRD, end your response with:"
     echo "PRD JSON saved to <path>. Close this chat and run \`ralph build\`."
     echo ""
-    echo "User request:"
+    echo "---"
+    echo ""
+    echo "# User Request"
+    echo ""
     cat "$PRD_REQUEST_PATH"
   } > "$PRD_PROMPT_FILE"
 
-  if [ "$PRD_USE_INLINE" -eq 1 ]; then
-    run_agent_inline "$PRD_PROMPT_FILE"
-  else
-    run_agent "$PRD_PROMPT_FILE"
-  fi
+  # Use PRD_AGENT_CMD for the agent call (always file-based for PRD mode)
+  AGENT_CMD="$PRD_AGENT_CMD"
+  run_agent "$PRD_PROMPT_FILE"
   exit 0
 fi
 

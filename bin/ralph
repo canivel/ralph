@@ -77,6 +77,7 @@ Commands:
   log "<message>"                     Append to .ralph/activity.log
   build [n] [--no-commit]             Run build loop (default)
   overview                            Render a human overview from PRD JSON
+  config                              Configure default agent
   help                                Show this message
 
 Options:
@@ -88,7 +89,73 @@ Options:
 Notes:
 - Uses local .agents/ralph if present; otherwise uses bundled defaults.
 - State and logs are written to .ralph/ in the project.
+- On first run, you'll be prompted to select your default agent.
 `);
+}
+
+function getGlobalConfigPath() {
+  return path.join(os.homedir(), ".ralph", "config.json");
+}
+
+function loadGlobalConfig() {
+  const configPath = getGlobalConfigPath();
+  try {
+    if (exists(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return {};
+}
+
+function saveGlobalConfig(config) {
+  const configPath = getGlobalConfigPath();
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+}
+
+async function promptForDefaultAgent(currentDefault) {
+  const { intro, outro, select, isCancel } = await import("@clack/prompts");
+  intro("Ralph Configuration");
+
+  const agent = await select({
+    message: "Select your default agent",
+    options: [
+      { value: "claude", label: "claude (Anthropic Claude CLI)" },
+      { value: "codex", label: "codex (OpenAI Codex CLI)" },
+      { value: "droid", label: "droid (Factory Droid CLI)" },
+      { value: "opencode", label: "opencode (OpenCode CLI)" },
+    ],
+    initialValue: currentDefault || "claude",
+  });
+
+  if (isCancel(agent)) {
+    outro("Cancelled. Using default: codex");
+    return null;
+  }
+
+  outro(`Default agent set to: ${agent}`);
+  return agent;
+}
+
+async function ensureFirstRunConfig() {
+  // Skip if not interactive TTY
+  if (!process.stdout.isTTY || !process.stdin.isTTY) return null;
+
+  const config = loadGlobalConfig();
+  if (config.defaultAgent) {
+    return config.defaultAgent;
+  }
+
+  // First run - prompt for agent selection
+  const agent = await promptForDefaultAgent("claude");
+  if (agent) {
+    config.defaultAgent = agent;
+    config.configuredAt = new Date().toISOString();
+    saveGlobalConfig(config);
+  }
+  return agent;
 }
 
 function findPrdCandidates(baseDir) {
@@ -269,6 +336,28 @@ async function runInstallSkills() {
 }
 
 async function main() {
+  // Handle config command first
+  if (cmd === "config") {
+    const config = loadGlobalConfig();
+    const agent = await promptForDefaultAgent(config.defaultAgent || "claude");
+    if (agent) {
+      config.defaultAgent = agent;
+      config.configuredAt = new Date().toISOString();
+      saveGlobalConfig(config);
+      console.log(`Configuration saved to ${getGlobalConfigPath()}`);
+    }
+    process.exit(0);
+  }
+
+  // Check for first-run configuration (skip for help/install commands)
+  if (cmd !== "help" && cmd !== "-h" && cmd !== "--help" && cmd !== "install") {
+    const configuredAgent = await ensureFirstRunConfig();
+    if (configuredAgent && !agentOverride) {
+      // Use configured agent as default if no override specified
+      process.env.DEFAULT_AGENT = configuredAgent;
+    }
+  }
+
   const updateInfo = checkForUpdate();
   if (updateInfo) {
     const { intro, confirm, outro, isCancel } = await import("@clack/prompts");
@@ -507,20 +596,87 @@ async function main() {
       }
       outro("Generating PRD...");
     }
-    const requestFile = path.join(os.tmpdir(), `ralph-prd-${Date.now()}.md`);
-    fs.writeFileSync(requestFile, `${request}\n`);
-    const outputPath = prdOutPath || prdPath || defaultPrdOutputPath(cwd, request);
-    env.PRD_PATH = outputPath;
-    const agentName = agentOverride || defaultAgent;
-    const prdAgent = agentInteractiveMap[agentName] || agentMap[agentName];
-    if (prdAgent) {
-      env.PRD_AGENT_CMD = prdAgent;
+
+    // Determine output path
+    const outputPath = prdOutPath || prdPath || path.join(cwd, ".agents", "tasks");
+    const prdOutputFile = outputPath.endsWith(".json")
+      ? outputPath
+      : path.join(outputPath, "prd.json");
+    fs.mkdirSync(path.dirname(prdOutputFile), { recursive: true });
+
+    // Find PRD skill file
+    let skillContent = "";
+    const skillPaths = [
+      path.join(cwd, ".claude", "skills", "prd", "SKILL.md"),
+      path.join(cwd, "skills", "prd", "SKILL.md"),
+      path.join(repoRoot, "skills", "prd", "SKILL.md"),
+    ];
+    for (const sp of skillPaths) {
+      if (exists(sp)) {
+        skillContent = fs.readFileSync(sp, "utf-8");
+        break;
+      }
     }
-    const prdArgs = ["prd", "--prompt", requestFile];
-    const result = spawnSync(loopPath, prdArgs, {
-      stdio: "inherit",
-      env,
-    });
+
+    // Build the prompt
+    const promptLines = [
+      "You are an autonomous coding agent.",
+      "",
+    ];
+    if (skillContent) {
+      promptLines.push(skillContent);
+      promptLines.push("");
+      promptLines.push("---");
+      promptLines.push("");
+    }
+    promptLines.push("# Output Requirements");
+    promptLines.push("");
+    promptLines.push(`Save the PRD JSON to: ${prdOutputFile}`);
+    promptLines.push("");
+    promptLines.push("Do NOT implement anything. Only generate the JSON PRD file.");
+    promptLines.push("");
+    promptLines.push("After saving the PRD, end your response with:");
+    promptLines.push("PRD JSON saved to <path>. Close this chat and run `ralph build`.");
+    promptLines.push("");
+    promptLines.push("---");
+    promptLines.push("");
+    promptLines.push("# User Request");
+    promptLines.push("");
+    promptLines.push(request);
+
+    const promptFile = path.join(os.tmpdir(), `ralph-prd-${Date.now()}.md`);
+    fs.writeFileSync(promptFile, promptLines.join("\n"));
+
+    // Spawn the agent directly
+    const agentName = agentOverride || defaultAgent;
+    console.log(`Using agent: ${agentName}`);
+    console.log(`PRD will be saved to: ${prdOutputFile}`);
+    console.log("");
+
+    let result;
+    if (agentName === "claude") {
+      // Spawn claude directly with proper stdio inheritance
+      result = spawnSync("claude", ["--dangerously-skip-permissions", promptFile], {
+        stdio: "inherit",
+        cwd,
+        env: { ...process.env },
+        shell: true,
+      });
+    } else {
+      // For other agents, use loop.sh
+      const requestFile = path.join(os.tmpdir(), `ralph-prd-req-${Date.now()}.md`);
+      fs.writeFileSync(requestFile, `${request}\n`);
+      env.PRD_PATH = prdOutputFile;
+      const prdAgent = agentInteractiveMap[agentName] || agentMap[agentName];
+      if (prdAgent) {
+        env.PRD_AGENT_CMD = prdAgent;
+      }
+      const prdArgs = ["prd", "--prompt", requestFile];
+      result = spawnSync(loopPath, prdArgs, {
+        stdio: "inherit",
+        env,
+      });
+    }
     process.exit(result.status ?? 1);
   }
 
