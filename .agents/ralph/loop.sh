@@ -10,12 +10,23 @@
 set -euo pipefail
 
 # Cross-platform Python detection (Windows uses 'python', Unix uses 'python3')
-if command -v python3 >/dev/null 2>&1; then
-  PYTHON_CMD="python3"
-elif command -v python >/dev/null 2>&1; then
-  PYTHON_CMD="python"
-else
-  echo "Error: Python is required but not found. Install Python 3.x and ensure it's in your PATH."
+# On Windows, 'python' may exist as an App Execution Alias that redirects to Microsoft Store
+# We need to actually test if the command works, not just if it exists
+PYTHON_CMD=""
+for py_cmd in python3 python; do
+  if command -v "$py_cmd" >/dev/null 2>&1; then
+    # Test if Python actually runs (catches Windows App Execution Alias issue)
+    if "$py_cmd" --version >/dev/null 2>&1; then
+      PYTHON_CMD="$py_cmd"
+      break
+    fi
+  fi
+done
+
+if [ -z "$PYTHON_CMD" ]; then
+  echo "Error: Python is required but not found or not working."
+  echo "Install Python 3.x and ensure it's in your PATH."
+  echo "On Windows, you may need to disable App Execution Aliases for python in Settings."
   exit 1
 fi
 
