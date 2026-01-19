@@ -9,6 +9,16 @@
 
 set -euo pipefail
 
+# Cross-platform Python detection (Windows uses 'python', Unix uses 'python3')
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_CMD="python3"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_CMD="python"
+else
+  echo "Error: Python is required but not found. Install Python 3.x and ensure it's in your PATH."
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${RALPH_ROOT:-${SCRIPT_DIR}/../..}" && pwd)"
 CONFIG_FILE="${SCRIPT_DIR}/config.sh"
@@ -393,7 +403,7 @@ render_prompt() {
   local iter="$6"
   local run_log="$7"
   local run_meta="$8"
-  python3 - "$src" "$dst" "$PRD_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" <<'PY'
+  $PYTHON_CMD - "$src" "$dst" "$PRD_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" <<'PY'
 import sys
 from pathlib import Path
 
@@ -458,7 +468,7 @@ PY
 select_story() {
   local meta_out="$1"
   local block_out="$2"
-  python3 - "$PRD_PATH" "$meta_out" "$block_out" "$STALE_SECONDS" <<'PY'
+  $PYTHON_CMD - "$PRD_PATH" "$meta_out" "$block_out" "$STALE_SECONDS" <<'PY'
 import json
 import os
 import sys
@@ -621,7 +631,7 @@ PY
 
 remaining_stories() {
   local meta_file="$1"
-  python3 - "$meta_file" <<'PY'
+  $PYTHON_CMD - "$meta_file" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -632,7 +642,7 @@ PY
 }
 
 remaining_from_prd() {
-  python3 - "$PRD_PATH" <<'PY'
+  $PYTHON_CMD - "$PRD_PATH" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -669,7 +679,7 @@ PY
 story_field() {
   local meta_file="$1"
   local field="$2"
-  python3 - "$meta_file" "$field" <<'PY'
+  $PYTHON_CMD - "$meta_file" "$field" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -683,7 +693,7 @@ PY
 update_story_status() {
   local story_id="$1"
   local new_status="$2"
-  python3 - "$PRD_PATH" "$story_id" "$new_status" <<'PY'
+  $PYTHON_CMD - "$PRD_PATH" "$story_id" "$new_status" <<'PY'
 import json
 import os
 import sys
@@ -759,7 +769,7 @@ log_error() {
 
 append_run_summary() {
   local line="$1"
-  python3 - "$ACTIVITY_LOG_PATH" "$line" <<'PY'
+  $PYTHON_CMD - "$ACTIVITY_LOG_PATH" "$line" <<'PY'
 import sys
 from pathlib import Path
 
