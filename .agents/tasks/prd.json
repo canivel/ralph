@@ -43,10 +43,10 @@
         "Basic TypeScript compilation works for both server and client"
       ],
       "dependsOn": [],
-      "status": "in_progress",
+      "status": "done",
       "startedAt": "2026-01-20T00:54:54.024302+00:00",
-      "completedAt": null,
-      "updatedAt": "2026-01-20T00:54:54.024315+00:00"
+      "completedAt": "2026-01-20T01:14:24.053901+00:00",
+      "updatedAt": "2026-01-20T01:14:24.053879+00:00"
     },
     {
       "id": "US-002",
@@ -62,7 +62,10 @@
       "dependsOn": [
         "US-001"
       ],
-      "status": "open"
+      "status": "in_progress",
+      "startedAt": "2026-01-20T01:14:58.460163+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-01-20T01:14:58.460173+00:00"
     },
     {
       "id": "US-003",
