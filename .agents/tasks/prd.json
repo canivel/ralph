@@ -406,10 +406,10 @@
       "dependsOn": [
         "US-014"
       ],
-      "status": "in_progress",
+      "status": "done",
       "startedAt": "2026-01-20T18:18:39.321895+00:00",
-      "completedAt": null,
-      "updatedAt": "2026-01-20T18:18:39.321905+00:00"
+      "completedAt": "2026-01-20T18:28:42.639616+00:00",
+      "updatedAt": "2026-01-20T18:28:42.639602+00:00"
     },
     {
       "id": "US-019",
@@ -428,7 +428,10 @@
       "dependsOn": [
         "US-014"
       ],
-      "status": "open"
+      "status": "done",
+      "startedAt": "2026-01-20T18:28:45.087905+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-01-20T18:53:35.487041+00:00"
     },
     {
       "id": "US-020",
@@ -447,7 +450,10 @@
       "dependsOn": [
         "US-015"
       ],
-      "status": "open"
+      "status": "in_progress",
+      "startedAt": "2026-01-20T19:11:36.798950+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-01-20T19:11:36.798965+00:00"
     },
     {
       "id": "US-021",

@@ -60,7 +60,7 @@ DEFAULT_MAX_ITERATIONS=25
 DEFAULT_NO_COMMIT=false
 DEFAULT_STALE_SECONDS=0
 DEFAULT_MAX_RETRIES=3
-DEFAULT_RETRY_DELAY=5
+DEFAULT_RETRY_DELAY=10
 DEFAULT_MAX_STORY_FAILURES=3
 PRD_REQUEST_PATH=""
 PRD_INLINE=""
@@ -795,18 +795,27 @@ log_error() {
 is_transient_error() {
   local log_file="$1"
   if [ ! -f "$log_file" ]; then
-    return 1
+    # No log file at all - treat as transient (agent didn't even start)
+    return 0
+  fi
+
+  # Check log file size
+  local line_count
+  line_count=$(wc -l < "$log_file" | tr -d ' ')
+
+  # Empty or very small log file (<= 5 lines) with non-zero exit - likely transient
+  # The agent didn't produce meaningful output
+  if [ "$line_count" -le 5 ]; then
+    return 0
   fi
 
   # If the log file has substantial content (> 20 lines), don't retry
   # This means the agent actually ran and produced output
-  local line_count
-  line_count=$(wc -l < "$log_file" | tr -d ' ')
   if [ "$line_count" -gt 20 ]; then
     return 1
   fi
 
-  # Known transient errors that should trigger retry
+  # For files between 6-20 lines, check for known error patterns
   if grep -q "No messages returned" "$log_file"; then
     return 0
   fi
@@ -1165,7 +1174,10 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
         log_activity "ITERATION $i retry $RETRY_COUNT (transient error)"
         # Clean up any dirty state before retry
         git_cleanup_dirty
-        sleep "$RETRY_DELAY"
+        # Exponential backoff: 10s, 20s, 40s, ...
+        local backoff_delay=$((RETRY_DELAY * (1 << (RETRY_COUNT - 1))))
+        echo "Waiting ${backoff_delay}s before retry..."
+        sleep "$backoff_delay"
         continue
       fi
     fi

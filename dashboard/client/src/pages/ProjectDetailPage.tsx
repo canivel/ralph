@@ -13,6 +13,7 @@ import {
   LogsTab,
   ProgressTab,
   GuardrailsTab,
+  MetricsTab,
 } from '@/components/project-tabs';
 
 const TABS = [
@@ -22,6 +23,7 @@ const TABS = [
   { value: 'logs', label: 'Logs' },
   { value: 'progress', label: 'Progress' },
   { value: 'guardrails', label: 'Guardrails' },
+  { value: 'metrics', label: 'Metrics' },
 ] as const;
 
 type TabValue = (typeof TABS)[number]['value'];
@@ -241,6 +243,10 @@ export function ProjectDetailPage() {
 
         <TabsContent value="guardrails">
           <GuardrailsTab project={project} />
+        </TabsContent>
+
+        <TabsContent value="metrics">
+          <MetricsTab project={project} />
         </TabsContent>
       </Tabs>
     </div>
