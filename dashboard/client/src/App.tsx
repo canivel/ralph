@@ -1,26 +1,21 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-
-function Home() {
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border p-4">
-        <h1 className="text-2xl font-bold text-foreground">Ralph Dashboard</h1>
-      </header>
-      <main className="p-4">
-        <p className="text-muted-foreground">Dashboard is loading...</p>
-      </main>
-    </div>
-  );
-}
+import { ThemeProvider } from '@/context/ThemeContext';
+import { Layout } from '@/components/Layout';
+import { ProjectsPage } from '@/pages/ProjectsPage';
+import { ProjectDetailPage } from '@/pages/ProjectDetailPage';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/projects/:id" element={<Home />} />
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<ProjectsPage />} />
+            <Route path="/projects/:id" element={<ProjectDetailPage />} />
+          </Routes>
+        </Layout>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 
