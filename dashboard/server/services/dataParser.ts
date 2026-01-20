@@ -13,56 +13,37 @@ import type { PRD, PRDStory, ActivityEvent, ErrorEntry, RunMeta } from '../types
 // ============================================================================
 
 /**
- * Progress entry parsed from progress.md
+ * Story summary parsed from progress.md
  */
-export interface ProgressEntry {
-  date: string;
-  storyId: string;
-  storyTitle: string;
-  thread: string | null;
-  runId: string;
-  iteration: number;
-  runLog: string;
-  runSummary: string;
-  guardrailsReviewed: boolean;
-  noCommitRun: boolean;
-  commit: string | null;
-  commitSubject: string | null;
-  postCommitStatus: string;
-  verification: Array<{
-    command: string;
-    result: 'PASS' | 'FAIL';
-  }>;
-  filesChanged: string[];
-  whatWasImplemented: string;
-  learnings: string[];
+export interface ProgressStorySummary {
+  id: string;
+  title: string;
+  summary: string;
 }
 
 /**
  * Structured progress data from progress.md
  */
 export interface ProgressData {
-  entries: ProgressEntry[];
+  content: string;
+  patterns: string[];
+  stories: ProgressStorySummary[];
 }
 
 /**
  * Sign entry parsed from guardrails.md
  */
 export interface GuardrailSign {
-  name: string;
-  trigger: string | null;
-  instruction: string | null;
-  addedAfter: string | null;
-  example: string | null;
-  rawContent: string;
+  title: string;
+  description: string;
 }
 
 /**
  * Structured guardrails data from guardrails.md
  */
 export interface GuardrailsData {
+  content: string;
   signs: GuardrailSign[];
-  rawContent: string;
 }
 
 // ============================================================================
@@ -371,174 +352,100 @@ export async function parseRunMeta(filePath: string): Promise<RunMeta | null> {
 
 /**
  * Parse the progress.md file
- * Format: Multiple entries separated by "---", each starting with "## [Date] - US-XXX: Title"
+ * Format: Has "## Codebase Patterns" section with patterns and "## Recent Stories" section
+ * with story summaries like "### US-XXX: Title" followed by bullet points
  *
  * @param filePath - Path to the progress.md file
- * @returns Structured progress data
+ * @returns Structured progress data with patterns and story summaries
  */
 export async function parseProgressMd(filePath: string): Promise<ProgressData> {
   const content = await safeReadFile(filePath);
   if (!content) {
-    return { entries: [] };
+    return { content: '', patterns: [], stories: [] };
   }
 
-  const entries: ProgressEntry[] = [];
+  const patterns: string[] = [];
+  const stories: ProgressStorySummary[] = [];
 
-  // Split by --- separator
-  const sections = content.split(/^---$/m);
+  // Split content into sections by ## headers
+  const lines = content.split('\n');
+  let currentSection = '';
+  let currentStory: ProgressStorySummary | null = null;
+  let storyLines: string[] = [];
 
-  for (const section of sections) {
-    const trimmed = section.trim();
-    if (!trimmed) continue;
+  for (const line of lines) {
+    const trimmed = line.trim();
 
-    // Match header: ## [Date/Time] - US-XXX: Title
-    const headerMatch = trimmed.match(/^##\s*(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2})\s*-\s*(US-\d+):\s*(.+?)$/m);
-    if (!headerMatch) continue;
-
-    const [, date, storyId, storyTitle] = headerMatch;
-
-    const entry: ProgressEntry = {
-      date: date.replace(' ', 'T'),
-      storyId,
-      storyTitle: storyTitle.trim(),
-      thread: null,
-      runId: '',
-      iteration: 0,
-      runLog: '',
-      runSummary: '',
-      guardrailsReviewed: false,
-      noCommitRun: false,
-      commit: null,
-      commitSubject: null,
-      postCommitStatus: '',
-      verification: [],
-      filesChanged: [],
-      whatWasImplemented: '',
-      learnings: [],
-    };
-
-    // Parse individual fields
-    const lines = trimmed.split('\n');
-    let inVerification = false;
-    let inFilesChanged = false;
-    let inLearnings = false;
-    let whatWasImplementedLines: string[] = [];
-    let inWhatWasImplemented = false;
-
-    for (const line of lines) {
-      const l = line.trim();
-
-      // Thread
-      if (l.startsWith('Thread:')) {
-        const val = l.replace('Thread:', '').trim();
-        entry.thread = val || null;
+    // Check for section headers
+    if (trimmed.startsWith('## ')) {
+      // Save previous story if any
+      if (currentStory && storyLines.length > 0) {
+        currentStory.summary = storyLines.join('\n');
+        stories.push(currentStory);
+        currentStory = null;
+        storyLines = [];
       }
-      // Run ID and iteration
-      else if (l.startsWith('Run:')) {
-        const runMatch = l.match(/Run:\s*(\S+)\s*\(iteration\s*(\d+)\)/i);
-        if (runMatch) {
-          entry.runId = runMatch[1];
-          entry.iteration = parseInt(runMatch[2], 10);
+
+      const sectionName = trimmed.slice(3).trim().toLowerCase();
+      if (sectionName.includes('pattern')) {
+        currentSection = 'patterns';
+      } else if (sectionName.includes('stories') || sectionName.includes('recent')) {
+        currentSection = 'stories';
+      } else {
+        currentSection = 'other';
+      }
+      continue;
+    }
+
+    // Check for story headers (### US-XXX: Title)
+    if (trimmed.startsWith('### ')) {
+      // Save previous story if any
+      if (currentStory && storyLines.length > 0) {
+        currentStory.summary = storyLines.join('\n');
+        stories.push(currentStory);
+        storyLines = [];
+      }
+
+      const storyHeader = trimmed.slice(4).trim();
+      const storyMatch = storyHeader.match(/^(US-\d+):\s*(.+)$/);
+      if (storyMatch) {
+        currentStory = {
+          id: storyMatch[1],
+          title: storyMatch[2].trim(),
+          summary: '',
+        };
+      }
+      continue;
+    }
+
+    // Parse patterns section
+    if (currentSection === 'patterns') {
+      // Handle both "- Pattern: description" and "- **pattern**: description" formats
+      if (trimmed.startsWith('- ')) {
+        let patternText = trimmed.slice(2).trim();
+        // Remove "Pattern: " prefix if present
+        if (patternText.toLowerCase().startsWith('pattern:')) {
+          patternText = patternText.slice(8).trim();
         }
-      }
-      // Run log
-      else if (l.startsWith('Run log:')) {
-        entry.runLog = l.replace('Run log:', '').trim();
-      }
-      // Run summary
-      else if (l.startsWith('Run summary:')) {
-        entry.runSummary = l.replace('Run summary:', '').trim();
-      }
-      // Guardrails reviewed
-      else if (l.startsWith('- Guardrails reviewed:')) {
-        entry.guardrailsReviewed = l.toLowerCase().includes('yes');
-      }
-      // No-commit run
-      else if (l.startsWith('- No-commit run:')) {
-        entry.noCommitRun = l.toLowerCase().includes('true');
-      }
-      // Commit
-      else if (l.startsWith('- Commit:')) {
-        const commitStr = l.replace('- Commit:', '').trim();
-        if (commitStr && commitStr !== 'none' && !commitStr.startsWith('none')) {
-          const commitParts = commitStr.split(/\s+/);
-          if (commitParts.length > 0) {
-            entry.commit = commitParts[0];
-            entry.commitSubject = commitParts.slice(1).join(' ') || null;
-          }
+        if (patternText) {
+          patterns.push(patternText);
         }
-      }
-      // Post-commit status
-      else if (l.startsWith('- Post-commit status:')) {
-        entry.postCommitStatus = l.replace('- Post-commit status:', '').trim();
-      }
-      // Section headers
-      else if (l === '- Verification:') {
-        inVerification = true;
-        inFilesChanged = false;
-        inLearnings = false;
-        inWhatWasImplemented = false;
-      }
-      else if (l === '- Files changed:') {
-        inVerification = false;
-        inFilesChanged = true;
-        inLearnings = false;
-        inWhatWasImplemented = false;
-      }
-      else if (l.startsWith('- What was implemented')) {
-        inVerification = false;
-        inFilesChanged = false;
-        inLearnings = false;
-        inWhatWasImplemented = true;
-        whatWasImplementedLines = [];
-      }
-      else if (l.startsWith('- **Learnings')) {
-        inVerification = false;
-        inFilesChanged = false;
-        inLearnings = true;
-        inWhatWasImplemented = false;
-        // Process accumulated what was implemented
-        entry.whatWasImplemented = whatWasImplementedLines.join('\n');
-      }
-      // Parse verification commands
-      else if (inVerification && l.startsWith('- Command:')) {
-        const cmdMatch = l.match(/- Command:\s*(.+?)\s*->\s*(PASS|FAIL)/i);
-        if (cmdMatch) {
-          entry.verification.push({
-            command: cmdMatch[1].trim(),
-            result: cmdMatch[2].toUpperCase() as 'PASS' | 'FAIL',
-          });
-        }
-      }
-      // Parse files changed
-      else if (inFilesChanged && l.startsWith('- ')) {
-        const file = l.replace('- ', '').trim();
-        if (file && !file.startsWith('**')) {
-          entry.filesChanged.push(file);
-        }
-      }
-      // Parse learnings
-      else if (inLearnings && l.startsWith('- ')) {
-        const learning = l.replace('- ', '').trim();
-        if (learning && !learning.startsWith('**')) {
-          entry.learnings.push(learning);
-        }
-      }
-      // Accumulate what was implemented lines
-      else if (inWhatWasImplemented && l.startsWith('- ')) {
-        whatWasImplementedLines.push(l.replace('- ', '').trim());
       }
     }
 
-    // Handle case where learnings section doesn't exist
-    if (inWhatWasImplemented) {
-      entry.whatWasImplemented = whatWasImplementedLines.join('\n');
+    // Collect story content
+    if (currentStory && trimmed) {
+      storyLines.push(trimmed);
     }
-
-    entries.push(entry);
   }
 
-  return { entries };
+  // Save last story if any
+  if (currentStory && storyLines.length > 0) {
+    currentStory.summary = storyLines.join('\n');
+    stories.push(currentStory);
+  }
+
+  return { content, patterns, stories };
 }
 
 // ============================================================================
@@ -555,7 +462,7 @@ export async function parseProgressMd(filePath: string): Promise<ProgressData> {
 export async function parseGuardrailsMd(filePath: string): Promise<GuardrailsData> {
   const content = await safeReadFile(filePath);
   if (!content) {
-    return { signs: [], rawContent: '' };
+    return { content: '', signs: [] };
   }
 
   const signs: GuardrailSign[] = [];
@@ -579,45 +486,26 @@ export async function parseGuardrailsMd(filePath: string): Promise<GuardrailsDat
   for (const signMatch of signMatches) {
     const signContent = content.slice(signMatch.start, signMatch.end).trim();
 
-    const sign: GuardrailSign = {
-      name: signMatch.name,
-      trigger: null,
-      instruction: null,
-      addedAfter: null,
-      example: null,
-      rawContent: signContent,
-    };
+    // Build description from the content after the header
+    const lines = signContent.split('\n').slice(1); // Skip the header line
+    const descriptionParts: string[] = [];
 
-    // Parse trigger
-    const triggerMatch = signContent.match(/\*\*Trigger\*\*:\s*(.+?)(?=\n|$)/);
-    if (triggerMatch) {
-      sign.trigger = triggerMatch[1].trim();
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed) {
+        descriptionParts.push(trimmed);
+      }
     }
 
-    // Parse instruction
-    const instructionMatch = signContent.match(/\*\*Instruction\*\*:\s*(.+?)(?=\n|$)/);
-    if (instructionMatch) {
-      sign.instruction = instructionMatch[1].trim();
-    }
-
-    // Parse added after
-    const addedMatch = signContent.match(/\*\*Added after\*\*:\s*(.+?)(?=\n|$)/);
-    if (addedMatch) {
-      sign.addedAfter = addedMatch[1].trim();
-    }
-
-    // Parse example
-    const exampleMatch = signContent.match(/\*\*Example\*\*:\s*(.+?)(?=\n|$)/);
-    if (exampleMatch) {
-      sign.example = exampleMatch[1].trim();
-    }
-
-    signs.push(sign);
+    signs.push({
+      title: signMatch.name,
+      description: descriptionParts.join('\n'),
+    });
   }
 
   return {
+    content,
     signs,
-    rawContent: content,
   };
 }
 
