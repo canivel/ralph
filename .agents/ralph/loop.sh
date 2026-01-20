@@ -790,11 +790,22 @@ log_error() {
 }
 
 # Check if the log file contains a transient/retryable error
+# Only returns true if the log is small (< 20 lines) AND contains a known error
+# This prevents retrying after a successful run that happens to mention an error
 is_transient_error() {
   local log_file="$1"
   if [ ! -f "$log_file" ]; then
     return 1
   fi
+
+  # If the log file has substantial content (> 20 lines), don't retry
+  # This means the agent actually ran and produced output
+  local line_count
+  line_count=$(wc -l < "$log_file" | tr -d ' ')
+  if [ "$line_count" -gt 20 ]; then
+    return 1
+  fi
+
   # Known transient errors that should trigger retry
   if grep -q "No messages returned" "$log_file"; then
     return 0

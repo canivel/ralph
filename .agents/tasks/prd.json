@@ -275,9 +275,9 @@
       "dependsOn": [
         "US-011"
       ],
-      "status": "in_progress",
+      "status": "done",
       "startedAt": "2026-01-20T17:07:22.434382+00:00",
-      "completedAt": null,
+      "completedAt": "2026-01-20T17:25:38.332943+00:00",
       "updatedAt": "2026-01-20T17:07:22.434393+00:00"
     },
     {
@@ -297,7 +297,10 @@
       "dependsOn": [
         "US-012"
       ],
-      "status": "open"
+      "status": "done",
+      "startedAt": "2026-01-20T17:26:37.391989+00:00",
+      "completedAt": "2026-01-20T17:37:18.505350+00:00",
+      "updatedAt": "2026-01-20T17:26:37.392002+00:00"
     },
     {
       "id": "US-014",
@@ -315,7 +318,10 @@
       "dependsOn": [
         "US-013"
       ],
-      "status": "open"
+      "status": "done",
+      "startedAt": "2026-01-20T17:37:44.483001+00:00",
+      "completedAt": "2026-01-20T17:46:15.092654+00:00",
+      "updatedAt": "2026-01-20T17:46:15.092624+00:00"
     },
     {
       "id": "US-015",
@@ -333,7 +339,10 @@
       "dependsOn": [
         "US-014"
       ],
-      "status": "open"
+      "status": "done",
+      "startedAt": "2026-01-20T17:46:17.450870+00:00",
+      "completedAt": "2026-01-20T17:54:01.752281+00:00",
+      "updatedAt": "2026-01-20T17:46:17.450881+00:00"
     },
     {
       "id": "US-016",
@@ -352,7 +361,10 @@
       "dependsOn": [
         "US-014"
       ],
-      "status": "open"
+      "status": "done",
+      "startedAt": "2026-01-20T17:59:46.460635+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-01-20T17:59:46.460648+00:00"
     },
     {
       "id": "US-017",
@@ -371,7 +383,10 @@
       "dependsOn": [
         "US-014"
       ],
-      "status": "open"
+      "status": "done",
+      "startedAt": "2026-01-20T18:08:03.214947+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-01-20T18:08:03.214956+00:00"
     },
     {
       "id": "US-018",
@@ -391,7 +406,10 @@
       "dependsOn": [
         "US-014"
       ],
-      "status": "open"
+      "status": "in_progress",
+      "startedAt": "2026-01-20T18:18:39.321895+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-01-20T18:18:39.321905+00:00"
     },
     {
       "id": "US-019",
