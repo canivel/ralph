@@ -212,10 +212,10 @@
         "US-007",
         "US-008"
       ],
-      "status": "in_progress",
+      "status": "done",
       "startedAt": "2026-01-20T03:11:23.072817+00:00",
-      "completedAt": null,
-      "updatedAt": "2026-01-20T03:11:23.072827+00:00"
+      "completedAt": "2026-01-20T03:17:23.108057+00:00",
+      "updatedAt": "2026-01-20T03:17:23.108043+00:00"
     },
     {
       "id": "US-010",
@@ -254,7 +254,10 @@
       "dependsOn": [
         "US-010"
       ],
-      "status": "open"
+      "status": "in_progress",
+      "startedAt": "2026-01-20T12:19:57.156891+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-01-20T12:19:57.156901+00:00"
     },
     {
       "id": "US-012",

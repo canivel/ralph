@@ -624,9 +624,12 @@ async function main() {
     const projectManagerPath = path.join(repoRoot, "dashboard", "server", "dist", "services", "projectManager.js");
 
     if (!exists(dashboardServerPath)) {
-      console.error("Dashboard server not found. Run 'npm run build' in dashboard/server first.");
+      console.error("Dashboard server not found. Run 'npm run build:dashboard:server' first.");
       process.exit(1);
     }
+
+    // Set environment variable for the server to find client dist
+    process.env.RALPH_REPO_ROOT = repoRoot;
 
     const { startServer, shutdown, server } = require(dashboardServerPath);
     const { registerProject, isValidRalphProject } = require(projectManagerPath);

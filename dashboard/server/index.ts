@@ -5,6 +5,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import { createServer } from 'http';
 import projectsRouter from './routes/projects.js';
 import runsRouter from './routes/runs.js';
@@ -38,6 +39,17 @@ const corsOptions: cors.CorsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Serve static files from the client build directory
+// Use process.cwd() based path for production, or relative to this file for development
+const getClientDistPath = (): string => {
+  // When running from bin/ralph, the server is at dashboard/server/dist/index.js
+  // Client dist is at dashboard/client/dist relative to repo root
+  const repoRoot = process.env.RALPH_REPO_ROOT || path.resolve(__dirname, '..', '..');
+  return path.join(repoRoot, 'dashboard', 'client', 'dist');
+};
+const clientDistPath = getClientDistPath();
+app.use(express.static(clientDistPath));
+
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -60,6 +72,11 @@ app.use('/api/projects/:projectId/logs', (req, _res, next) => {
   req.params = { ...req.params };
   next();
 }, logsRouter);
+
+// SPA fallback - serve index.html for all non-API routes
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(clientDistPath, 'index.html'));
+});
 
 /**
  * Start the dashboard server
