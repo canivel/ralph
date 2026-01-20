@@ -83,10 +83,10 @@
       "dependsOn": [
         "US-001"
       ],
-      "status": "in_progress",
+      "status": "done",
       "startedAt": "2026-01-20T01:20:44.789063+00:00",
-      "completedAt": null,
-      "updatedAt": "2026-01-20T01:20:44.789086+00:00"
+      "completedAt": "2026-01-20T01:26:36.771278+00:00",
+      "updatedAt": "2026-01-20T01:26:36.771259+00:00"
     },
     {
       "id": "US-004",
@@ -104,7 +104,10 @@
       "dependsOn": [
         "US-001"
       ],
-      "status": "open"
+      "status": "in_progress",
+      "startedAt": "2026-01-20T01:26:40.056211+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-01-20T01:26:40.056221+00:00"
     },
     {
       "id": "US-005",

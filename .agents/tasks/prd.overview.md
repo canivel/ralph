@@ -1,7 +1,7 @@
 # PRD Overview: Ralph Dashboard
 
 - File: .agents\tasks\prd.json
-- Stories: 23 total (23 open, 0 in_progress, 0 done)
+- Stories: 23 total (19 open, 1 in_progress, 3 done)
 
 ## Quality Gates
 - npm run typecheck
@@ -9,10 +9,10 @@
 - npm test -- --run
 
 ## Stories
-- [open] US-001: Project structure and dependencies setup
-- [open] US-002: Express server with basic routing (depends on: US-001)
-- [open] US-003: Data parsers for Ralph files (depends on: US-001)
-- [open] US-004: Project manager service (depends on: US-001)
+- [done] US-001: Project structure and dependencies setup
+- [done] US-002: Express server with basic routing (depends on: US-001)
+- [done] US-003: Data parsers for Ralph files (depends on: US-001)
+- [in_progress] US-004: Project manager service (depends on: US-001)
 - [open] US-005: File watcher service with chokidar (depends on: US-004)
 - [open] US-006: WebSocket server for real-time updates (depends on: US-005)
 - [open] US-007: REST API endpoints for projects (depends on: US-003, US-004)
