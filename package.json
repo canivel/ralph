@@ -11,7 +11,9 @@
     "test:ping": "node tests/agent-ping.mjs",
     "typecheck": "tsc --noEmit -p dashboard/server/tsconfig.json",
     "lint": "echo 'No linter configured'",
-    "build:dashboard:server": "tsc -p dashboard/server/tsconfig.json"
+    "build:dashboard:server": "tsc -p dashboard/server/tsconfig.json",
+    "build:dashboard:client": "npm run build --prefix dashboard/client",
+    "build:dashboard": "npm run build:dashboard:server && npm run build:dashboard:client"
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0",
@@ -51,5 +53,14 @@
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "files": [
+    "bin",
+    ".agents",
+    "skills",
+    "dashboard/server/dist",
+    "dashboard/server/public",
+    "README.md",
+    "LICENSE"
+  ]
 }

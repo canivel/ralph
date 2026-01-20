@@ -450,7 +450,7 @@
       "dependsOn": [
         "US-015"
       ],
-      "status": "in_progress",
+      "status": "done",
       "startedAt": "2026-01-20T19:11:36.798950+00:00",
       "completedAt": null,
       "updatedAt": "2026-01-20T19:11:36.798965+00:00"
@@ -472,10 +472,10 @@
         "US-009",
         "US-010"
       ],
-      "status": "open",
-      "startedAt": null,
+      "status": "in_progress",
+      "startedAt": "2026-01-20T19:34:12.928190+00:00",
       "completedAt": null,
-      "updatedAt": "2026-01-20T14:34:47.641851+00:00"
+      "updatedAt": "2026-01-20T19:34:12.928202+00:00"
     },
     {
       "id": "US-022",
