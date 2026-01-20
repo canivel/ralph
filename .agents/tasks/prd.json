@@ -1,0 +1,465 @@
+{
+  "version": 1,
+  "project": "Ralph Dashboard",
+  "overview": "A real-time web dashboard for visualizing Ralph agent loop progress across multiple concurrent projects. Provides visibility into stories, iterations, logs, errors, and guardrails for users running long autonomous coding sessions.",
+  "goals": [
+    "Enable users to monitor multiple Ralph projects running in parallel",
+    "Provide real-time updates via WebSocket when .ralph/ files change",
+    "Visualize story progress with a kanban board interface",
+    "Display run history with git commits, duration, and status",
+    "Offer searchable log viewing for activity, errors, and run logs",
+    "Render progress.md and guardrails.md with proper markdown formatting",
+    "Show metrics and charts for completion rate, duration trends, and success rates"
+  ],
+  "nonGoals": [
+    "Remote/SSH project monitoring (future enhancement)",
+    "Mobile app support",
+    "Executing or modifying Ralph runs from the dashboard",
+    "Real-time code editing"
+  ],
+  "stack": {
+    "backend": "Node.js with Express.js and ws (WebSocket)",
+    "fileWatching": "chokidar for cross-platform file watching",
+    "frontend": "React 18 with Vite, Tailwind CSS, shadcn/ui components",
+    "state": "Zustand for client state management",
+    "charts": "Recharts for metrics visualization",
+    "markdown": "react-markdown for rendering .md files"
+  },
+  "qualityGates": [
+    "npm run typecheck",
+    "npm run lint",
+    "npm test -- --run"
+  ],
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Project structure and dependencies setup",
+      "description": "Set up the dashboard directory structure within the Ralph project. Create dashboard/server/ and dashboard/client/ directories. Add all required dependencies to package.json for the backend (express, ws, chokidar, cors, uuid) and create a separate package.json for the frontend (React, Vite, Tailwind, shadcn/ui, Zustand, Recharts, react-markdown). Configure TypeScript for both server and client.",
+      "acceptanceCriteria": [
+        "dashboard/server/ directory exists with TypeScript config",
+        "dashboard/client/ directory exists with Vite + React + TypeScript config",
+        "All dependencies listed in DASHBOARD_PLAN.md are added",
+        "npm install completes without errors",
+        "Basic TypeScript compilation works for both server and client"
+      ],
+      "dependsOn": [],
+      "status": "in_progress",
+      "startedAt": "2026-01-20T00:54:54.024302+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-01-20T00:54:54.024315+00:00"
+    },
+    {
+      "id": "US-002",
+      "title": "Express server with basic routing",
+      "description": "Create the Express.js server entry point in dashboard/server/index.ts. Set up basic middleware (cors, json parsing). Create placeholder route files for projects, runs, and logs endpoints. Server should start on configurable port (default 4242) and serve a health check endpoint.",
+      "acceptanceCriteria": [
+        "Server starts on port 4242 by default",
+        "GET /api/health returns { status: 'ok' }",
+        "CORS is configured for local development",
+        "Route structure matches DASHBOARD_PLAN.md API endpoints",
+        "Server can be started with: node dashboard/server/index.js"
+      ],
+      "dependsOn": [
+        "US-001"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-003",
+      "title": "Data parsers for Ralph files",
+      "description": "Create dashboard/server/services/dataParser.ts with functions to parse all Ralph data files: PRD JSON (.agents/tasks/*.json), activity.log, errors.log, progress.md, guardrails.md, and run metadata files (.ralph/runs/*.md). Each parser should handle malformed data gracefully and return typed objects.",
+      "acceptanceCriteria": [
+        "parsePrd(path) returns typed PRD object with stories array",
+        "parseActivityLog(path) returns array of timestamped events",
+        "parseErrorsLog(path) returns array of error entries",
+        "parseRunMeta(path) returns run metadata object",
+        "parseProgressMd(path) returns structured progress data",
+        "All parsers handle missing/malformed files without crashing",
+        "TypeScript types defined for all parsed data structures"
+      ],
+      "dependsOn": [
+        "US-001"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-004",
+      "title": "Project manager service",
+      "description": "Create dashboard/server/services/projectManager.ts to handle project registration, storage, and retrieval. Projects are stored in ~/.ralph/dashboard.json. Each project has an id, path, name, and addedAt timestamp. Implement add, remove, list, and get operations. Validate that registered paths contain .ralph/ directory.",
+      "acceptanceCriteria": [
+        "registerProject(path, name?) adds project to config",
+        "unregisterProject(id) removes project from config",
+        "listProjects() returns all registered projects",
+        "getProject(id) returns single project or null",
+        "Validates path exists and contains .ralph/ directory",
+        "Config persisted to ~/.ralph/dashboard.json",
+        "Auto-generates unique IDs for projects"
+      ],
+      "dependsOn": [
+        "US-001"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-005",
+      "title": "File watcher service with chokidar",
+      "description": "Create dashboard/server/services/fileWatcher.ts using chokidar to watch Ralph project directories. Watch patterns: .agents/tasks/*.json, .ralph/progress.md, .ralph/activity.log, .ralph/errors.log, .ralph/guardrails.md, .ralph/runs/*. Emit events when files change with appropriate debouncing (100ms for logs, 500ms for structural files).",
+      "acceptanceCriteria": [
+        "watchProject(projectId, path) starts watching a project",
+        "unwatchProject(projectId) stops watching",
+        "Emits 'change' events with projectId, fileType, and path",
+        "Debouncing prevents excessive events",
+        "Handles projects being added/removed dynamically",
+        "Gracefully handles watched directories being deleted"
+      ],
+      "dependsOn": [
+        "US-004"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-006",
+      "title": "WebSocket server for real-time updates",
+      "description": "Create dashboard/server/services/websocketHub.ts to manage WebSocket connections. Integrate with Express server using ws library. Clients can subscribe to specific projects. When file watcher emits changes, broadcast updates to subscribed clients. Implement connection tracking and cleanup.",
+      "acceptanceCriteria": [
+        "WebSocket server runs alongside Express on same port",
+        "Clients can send 'subscribe' message with projectIds",
+        "Clients can send 'unsubscribe' message",
+        "File changes trigger broadcasts to subscribed clients only",
+        "Connection cleanup on disconnect",
+        "Heartbeat/ping to detect stale connections"
+      ],
+      "dependsOn": [
+        "US-005"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-007",
+      "title": "REST API endpoints for projects",
+      "description": "Implement dashboard/server/routes/projects.ts with full CRUD for projects. GET /api/projects lists all, POST /api/projects registers new, GET /api/projects/:id returns details with parsed PRD data, DELETE /api/projects/:id unregisters. Include computed fields like story counts and status.",
+      "acceptanceCriteria": [
+        "GET /api/projects returns array of projects with status",
+        "POST /api/projects with { path, name? } registers project",
+        "GET /api/projects/:id returns project with parsed PRD",
+        "DELETE /api/projects/:id removes project",
+        "Returns 404 for unknown project IDs",
+        "Returns 400 for invalid paths",
+        "Projects include computed fields: storyCount, doneCount, isRunning"
+      ],
+      "dependsOn": [
+        "US-003",
+        "US-004"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-008",
+      "title": "REST API endpoints for runs and logs",
+      "description": "Implement dashboard/server/routes/runs.ts and dashboard/server/routes/logs.ts. Runs endpoint returns parsed run history from .ralph/runs/. Logs endpoints return activity log, errors log, and specific run logs with pagination/streaming support for large files.",
+      "acceptanceCriteria": [
+        "GET /api/projects/:id/runs returns run history array",
+        "GET /api/projects/:id/runs/:runId returns specific run metadata",
+        "GET /api/projects/:id/runs/:runId/log returns run log content",
+        "GET /api/projects/:id/logs/activity returns activity log",
+        "GET /api/projects/:id/logs/errors returns errors log",
+        "Supports ?limit and ?offset for pagination",
+        "Large logs are truncated with indication"
+      ],
+      "dependsOn": [
+        "US-003",
+        "US-007"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-009",
+      "title": "CLI command: ralph dashboard",
+      "description": "Add 'dashboard' command to bin/ralph. Options: --port (default 4242), --host (default localhost), --open (open browser), --projects (comma-separated paths). Starts the Express server, registers specified projects, and optionally opens browser. Auto-register current directory if it's a Ralph project.",
+      "acceptanceCriteria": [
+        "ralph dashboard starts server on port 4242",
+        "ralph dashboard --port 8080 uses custom port",
+        "ralph dashboard --open launches browser",
+        "ralph dashboard --projects /a,/b registers multiple projects",
+        "Auto-registers cwd if .ralph/ exists",
+        "Displays server URL on startup",
+        "Graceful shutdown on SIGINT"
+      ],
+      "dependsOn": [
+        "US-002",
+        "US-006",
+        "US-007",
+        "US-008"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-010",
+      "title": "Frontend: Vite React app shell",
+      "description": "Set up the React frontend in dashboard/client/. Configure Vite, Tailwind CSS, and basic shadcn/ui setup. Create main App.tsx with React Router for navigation. Set up the basic layout with sidebar and main content area. Configure proxy to backend API in development.",
+      "acceptanceCriteria": [
+        "npm run dev in dashboard/client starts Vite dev server",
+        "Tailwind CSS is configured and working",
+        "shadcn/ui components can be imported",
+        "React Router set up with routes for /, /projects/:id",
+        "Layout component with sidebar placeholder",
+        "Vite proxies /api/* to Express backend",
+        "Basic dark/light mode support via Tailwind"
+      ],
+      "dependsOn": [
+        "US-001"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-011",
+      "title": "Frontend: Zustand store and WebSocket hook",
+      "description": "Create dashboard/client/src/stores/projectStore.ts with Zustand for managing projects state. Create useWebSocket hook that connects to backend, handles subscribe/unsubscribe, and updates store on incoming messages. Handle reconnection on disconnect.",
+      "acceptanceCriteria": [
+        "projectStore holds projects array and selectedProjectId",
+        "Actions: setProjects, updateProject, setSelectedProject",
+        "useWebSocket hook connects to ws://localhost:4242",
+        "Hook auto-subscribes to selected project",
+        "Store updates on WebSocket messages",
+        "Reconnection logic with exponential backoff",
+        "Connection status exposed (connected/disconnected)"
+      ],
+      "dependsOn": [
+        "US-010"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-012",
+      "title": "Frontend: API client and data fetching",
+      "description": "Create dashboard/client/src/lib/api.ts with typed functions for all API endpoints. Create custom hooks useProjects(), useProject(id), useRuns(projectId), useLogs(projectId, type) that fetch data and integrate with the store. Handle loading and error states.",
+      "acceptanceCriteria": [
+        "api.getProjects() fetches and returns typed projects",
+        "api.getProject(id) fetches single project with PRD",
+        "api.getRuns(projectId) fetches run history",
+        "api.getLogs(projectId, type) fetches log content",
+        "useProjects() hook with loading/error states",
+        "useProject(id) hook integrates with WebSocket updates",
+        "Error handling with user-friendly messages"
+      ],
+      "dependsOn": [
+        "US-011"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-013",
+      "title": "Frontend: Projects list view",
+      "description": "Create the home page showing all registered projects as cards. Each ProjectCard shows: project name, path, story progress bar, current status (running/idle), current story if running, last activity time. Include 'Add Project' button that opens a dialog to register new project path.",
+      "acceptanceCriteria": [
+        "Home page displays all registered projects",
+        "ProjectCard shows name, path, progress (X/Y stories)",
+        "Status badge shows running (green pulse) or idle (gray)",
+        "Shows current story ID if in_progress",
+        "Add Project button opens AddProjectDialog",
+        "AddProjectDialog accepts path input and registers project",
+        "Empty state shown when no projects registered",
+        "Projects update in real-time via WebSocket"
+      ],
+      "dependsOn": [
+        "US-012"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-014",
+      "title": "Frontend: Project detail layout with tabs",
+      "description": "Create ProjectDetail page at /projects/:id with tabbed interface. Tabs: Overview, Stories, Runs, Logs, Progress, Guardrails. Each tab is a separate component. Header shows project name, status, and quick stats. Back navigation to home.",
+      "acceptanceCriteria": [
+        "ProjectDetail page loads project by ID from URL",
+        "Tab navigation between Overview/Stories/Runs/Logs/Progress/Guardrails",
+        "Active tab persisted in URL (e.g., /projects/123?tab=stories)",
+        "Header shows project name and running/idle status",
+        "Quick stats in header: X/Y stories, Z runs",
+        "Back button returns to projects list",
+        "404 handling for invalid project ID"
+      ],
+      "dependsOn": [
+        "US-013"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-015",
+      "title": "Frontend: Overview tab",
+      "description": "Create OverviewTab component showing project summary. Display: total stories by status, quality gates list, recent activity feed (last 10 events), current iteration info if running (story, duration, started time). Use cards/panels for visual organization.",
+      "acceptanceCriteria": [
+        "Story summary: Open (N), In Progress (N), Done (N)",
+        "Quality gates listed from PRD",
+        "Recent activity shows last 10 log entries",
+        "Current iteration panel when running: story ID, title, elapsed time",
+        "Elapsed time updates every second",
+        "Activity feed updates in real-time",
+        "Clean card-based layout with proper spacing"
+      ],
+      "dependsOn": [
+        "US-014"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-016",
+      "title": "Frontend: Stories kanban board",
+      "description": "Create StoriesTab with kanban board layout. Three columns: Open, In Progress, Done. Story cards show ID, title, dependency info. Cards are color-coded by status. Clicking a card opens StoryDetailModal showing full description, acceptance criteria, and timestamps.",
+      "acceptanceCriteria": [
+        "Three-column kanban: Open | In Progress | Done",
+        "Stories sorted by ID within columns",
+        "StoryCard shows: ID, title, blocked indicator if dependencies not met",
+        "In Progress card shows elapsed time since startedAt",
+        "Done cards show completion time",
+        "Click opens StoryDetailModal with full info",
+        "Modal shows description, acceptance criteria, dates",
+        "Empty column shows placeholder message"
+      ],
+      "dependsOn": [
+        "US-014"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-017",
+      "title": "Frontend: Runs timeline",
+      "description": "Create RunsTab showing run history as a table/timeline. Columns: Run ID, Iteration, Story, Duration, Status, Git commits. Expandable rows show full run details: changed files, commit messages, verification results. Filter by status (all/success/failed). Sort by date.",
+      "acceptanceCriteria": [
+        "Table lists all runs from .ralph/runs/",
+        "Columns: Run ID, Iter, Story, Duration, Status, Commits",
+        "Status shown as badge (success=green, failed=red, running=blue)",
+        "Click row expands to show details",
+        "Details show: changed files list, commit messages, timestamps",
+        "Filter dropdown: All, Success, Failed",
+        "Sorted by date descending (newest first)",
+        "Running iteration shown at top with pulse indicator"
+      ],
+      "dependsOn": [
+        "US-014"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-018",
+      "title": "Frontend: Logs viewer",
+      "description": "Create LogsTab with sub-tabs for Activity, Errors, and Run Logs. Each log view shows timestamped entries with syntax highlighting for code blocks. Include search/filter input. Auto-scroll toggle for following new entries. For run logs, select specific run from dropdown.",
+      "acceptanceCriteria": [
+        "Sub-tabs: Activity | Errors | Run Logs",
+        "Activity shows parsed activity.log entries",
+        "Errors shows parsed errors.log entries",
+        "Run Logs has dropdown to select run, shows that run's .log file",
+        "Search input filters visible entries",
+        "Auto-scroll checkbox (default on for active runs)",
+        "New log entries appear in real-time when auto-scroll enabled",
+        "Timestamps formatted nicely (relative time option)",
+        "Long entries truncated with expand option"
+      ],
+      "dependsOn": [
+        "US-014"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-019",
+      "title": "Frontend: Progress and Guardrails tabs",
+      "description": "Create ProgressTab and GuardrailsTab that render the respective markdown files. Use react-markdown with proper styling. Progress entries should be collapsible by story. Guardrails should highlight Sign headers. Both should update in real-time when files change.",
+      "acceptanceCriteria": [
+        "ProgressTab renders progress.md with proper markdown",
+        "Progress entries collapsible by story section",
+        "Code blocks syntax highlighted",
+        "GuardrailsTab renders guardrails.md",
+        "Sign headers visually distinguished",
+        "Both update when file changes via WebSocket",
+        "Scroll position maintained on updates",
+        "Empty state for missing files"
+      ],
+      "dependsOn": [
+        "US-014"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-020",
+      "title": "Frontend: Metrics panel",
+      "description": "Add MetricsTab or integrate metrics into Overview. Use Recharts to display: stories completion over time (line chart), success rate pie chart, iteration duration bar chart, files changed per run. Compute metrics from run history and PRD data.",
+      "acceptanceCriteria": [
+        "Story completion line chart showing progress over time",
+        "Success/failure pie chart from run statuses",
+        "Iteration duration bar chart (per run)",
+        "Average duration stat displayed",
+        "Total files changed stat",
+        "Charts responsive to container size",
+        "Tooltips on chart hover",
+        "Loading state while computing metrics"
+      ],
+      "dependsOn": [
+        "US-015"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-021",
+      "title": "Build system for production bundle",
+      "description": "Create build script that: 1) Compiles server TypeScript, 2) Builds client with Vite, 3) Copies client dist to server's static folder. Update package.json scripts. Server should serve static files from bundled client in production. Ensure bundle is included in npm package.",
+      "acceptanceCriteria": [
+        "npm run build:dashboard compiles server and client",
+        "Server serves /dashboard/* from bundled client files",
+        "Client build outputs to dashboard/server/public/",
+        "Production build works without Vite dev server",
+        "package.json files field includes dashboard build",
+        "Build completes without errors",
+        "Bundle size reasonable (< 500KB gzipped for client)"
+      ],
+      "dependsOn": [
+        "US-009",
+        "US-010"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-022",
+      "title": "Polish: Error handling and loading states",
+      "description": "Add comprehensive error handling throughout the app. Loading skeletons for all data-fetching components. Error boundaries for React components. Toast notifications for actions (project added, connection lost, etc). Graceful degradation when WebSocket disconnects.",
+      "acceptanceCriteria": [
+        "Loading skeletons for ProjectCard, StoryBoard, RunsTable",
+        "Error boundary catches React errors",
+        "Toast notifications for user actions",
+        "Connection status indicator in header",
+        "Reconnection toast when WebSocket reconnects",
+        "API errors shown as user-friendly messages",
+        "Empty states styled consistently"
+      ],
+      "dependsOn": [
+        "US-013",
+        "US-014",
+        "US-015",
+        "US-016",
+        "US-017",
+        "US-018",
+        "US-019",
+        "US-020"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "US-023",
+      "title": "Testing and documentation",
+      "description": "Add tests for critical functionality: data parsers, project manager, API endpoints. Update README.md with dashboard documentation: installation, usage, screenshots placeholder. Add --help text for ralph dashboard command.",
+      "acceptanceCriteria": [
+        "Unit tests for all data parsers",
+        "Unit tests for projectManager service",
+        "Integration tests for API endpoints",
+        "Tests pass with npm test",
+        "README includes Dashboard section with usage",
+        "ralph dashboard --help shows all options",
+        "JSDoc comments on public functions"
+      ],
+      "dependsOn": [
+        "US-021",
+        "US-022"
+      ],
+      "status": "open"
+    }
+  ]
+}
