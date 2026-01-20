@@ -3,8 +3,10 @@
 
 AGENT_CODEX_CMD="codex exec --yolo --skip-git-repo-check -"
 AGENT_CODEX_INTERACTIVE_CMD="codex --yolo {prompt}"
-AGENT_CLAUDE_CMD="claude --dangerously-skip-permissions -p {prompt}"
-AGENT_CLAUDE_INTERACTIVE_CMD="claude --dangerously-skip-permissions {prompt}"
+# Note: Claude CLI expects the prompt as an argument, not a file path
+# So we use cat to read the file content
+AGENT_CLAUDE_CMD="claude --dangerously-skip-permissions -p \"\$(cat {prompt})\""
+AGENT_CLAUDE_INTERACTIVE_CMD="claude --dangerously-skip-permissions \"\$(cat {prompt})\""
 AGENT_DROID_CMD="droid exec --skip-permissions-unsafe -f {prompt}"
 AGENT_DROID_INTERACTIVE_CMD="droid --skip-permissions-unsafe {prompt}"
 AGENT_OPENCODE_CMD="opencode run \"\$(cat {prompt})\""

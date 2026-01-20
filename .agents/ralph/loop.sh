@@ -75,9 +75,9 @@ resolve_agent_cmd() {
   case "$name" in
     claude)
       if [ "$interactive" = "1" ]; then
-        echo "${AGENT_CLAUDE_INTERACTIVE_CMD:-"claude --dangerously-skip-permissions {prompt}"}"
+        echo "${AGENT_CLAUDE_INTERACTIVE_CMD:-"claude --dangerously-skip-permissions \"\\\$(cat {prompt})\""}"
       else
-        echo "${AGENT_CLAUDE_CMD:-"claude -p --dangerously-skip-permissions {prompt}"}"
+        echo "${AGENT_CLAUDE_CMD:-"claude -p --dangerously-skip-permissions \"\\\$(cat {prompt})\""}"
       fi
       ;;
     droid)
@@ -957,8 +957,12 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     echo "[RALPH_DRY_RUN] Skipping agent execution." | tee "$LOG_FILE"
     CMD_STATUS=0
   else
+    # Run agent - capture output to log file while displaying to terminal
+    # Note: On some systems, piping through tee can cause buffering issues
+    # with interactive CLIs like Claude. If you see no output, the agent
+    # is still running - check the log file for captured output.
     run_agent "$PROMPT_RENDERED" 2>&1 | tee "$LOG_FILE"
-    CMD_STATUS=$?
+    CMD_STATUS=${PIPESTATUS[0]}
   fi
   set -e
   if [ "$CMD_STATUS" -eq 130 ] || [ "$CMD_STATUS" -eq 143 ]; then
