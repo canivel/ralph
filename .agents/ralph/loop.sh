@@ -75,9 +75,9 @@ resolve_agent_cmd() {
   case "$name" in
     claude)
       if [ "$interactive" = "1" ]; then
-        echo "${AGENT_CLAUDE_INTERACTIVE_CMD:-"claude --dangerously-skip-permissions \"\\\$(cat {prompt})\""}"
+        echo "${AGENT_CLAUDE_INTERACTIVE_CMD:-"claude --dangerously-skip-permissions -"}"
       else
-        echo "${AGENT_CLAUDE_CMD:-"claude -p --dangerously-skip-permissions \"\\\$(cat {prompt})\""}"
+        echo "${AGENT_CLAUDE_CMD:-"claude --dangerously-skip-permissions -p -"}"
       fi
       ;;
     droid)

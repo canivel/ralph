@@ -10,8 +10,8 @@ Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration 
 
 - **First-run agent selection** - Prompted to choose your default agent on first use
 - **`ralph config` command** - Reconfigure your default agent anytime
-- **Improved Claude support** - Direct spawning with proper TTY handling for PRD generation
-- **Better Windows compatibility** - Fixed shell quoting issues
+- **Improved Claude support** - Uses stdin mode (`-p -`) for reliable prompt passing
+- **Better Windows compatibility** - Fixed shell quoting and Python detection
 - **Global config storage** - Settings persist in `~/.ralph/config.json`
 
 ## How It Works
@@ -172,8 +172,8 @@ ralph config
 After running `ralph install`, you can customize behavior in `.agents/ralph/config.sh`:
 
 ```bash
-# Override agent command
-AGENT_CMD="claude -p --dangerously-skip-permissions \"\$(cat {prompt})\""
+# Override agent command (Claude uses stdin mode by default)
+# AGENT_CMD="claude --dangerously-skip-permissions -p -"
 
 # Build settings
 NO_COMMIT=false
@@ -230,9 +230,13 @@ AGENT_OPENCODE_CMD="opencode run --attach http://localhost:4096 \"\$(cat {prompt
 
 ### Custom Agent Commands
 
-Use `{prompt}` placeholder when the agent needs a file path instead of stdin:
+Agents are passed prompts via stdin by default. Use `{prompt}` placeholder when the agent needs a file path instead:
 
 ```bash
+# Stdin mode (default for claude, codex)
+AGENT_CMD="my-agent -"
+
+# File path mode (for agents that require a file)
 AGENT_CMD="my-agent --file {prompt}"
 ```
 
