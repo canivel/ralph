@@ -9,9 +9,14 @@ import { createServer } from 'http';
 import projectsRouter from './routes/projects.js';
 import runsRouter from './routes/runs.js';
 import logsRouter from './routes/logs.js';
+import { getWebSocketHub } from './services/websocketHub.js';
 
 const app = express();
 const server = createServer(app);
+
+// Initialize WebSocket hub and attach to HTTP server
+const wsHub = getWebSocketHub();
+wsHub.attach(server);
 
 // Default port
 const DEFAULT_PORT = 4242;
@@ -66,7 +71,15 @@ export function startServer(port: number = PORT): void {
   });
 }
 
-export { app, server };
+export { app, server, wsHub };
+
+/**
+ * Gracefully shutdown the server and WebSocket connections
+ */
+export function shutdown(): void {
+  wsHub.close();
+  server.close();
+}
 
 // Start server if run directly
 // This enables: node dashboard/server/index.js
@@ -74,4 +87,17 @@ const isMainModule = process.argv[1]?.endsWith('index.js') ||
                      process.argv[1]?.endsWith('index.ts');
 if (isMainModule) {
   startServer();
+
+  // Handle graceful shutdown
+  process.on('SIGINT', () => {
+    console.log('\nShutting down gracefully...');
+    shutdown();
+    process.exit(0);
+  });
+
+  process.on('SIGTERM', () => {
+    console.log('Received SIGTERM, shutting down...');
+    shutdown();
+    process.exit(0);
+  });
 }
