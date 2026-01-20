@@ -17,6 +17,10 @@ let installForce = false;
 let prdPath = null;
 let progressPath = null;
 let prdOutPath = null;
+let dashboardPort = 4242;
+let dashboardHost = "localhost";
+let dashboardOpen = false;
+let dashboardProjects = null;
 
 function exists(p) {
   try {
@@ -78,6 +82,7 @@ Commands:
   build [n] [--no-commit]             Run build loop (default)
   overview                            Render a human overview from PRD JSON
   config                              Configure default agent
+  dashboard                           Start the Ralph dashboard web server
   help                                Show this message
 
 Options:
@@ -85,6 +90,12 @@ Options:
   --out <path>                        Override PRD output path (prd command)
   --progress <path>                   Override progress log path
   --agent <codex|claude|droid|opencode>  Override agent runner
+
+Dashboard options:
+  --port <number>                     Port to run on (default: 4242)
+  --host <hostname>                   Host to bind to (default: localhost)
+  --open                              Open browser after starting
+  --projects <paths>                  Comma-separated project paths to register
 
 Notes:
 - Uses local .agents/ralph if present; otherwise uses bundled defaults.
@@ -245,6 +256,37 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   }
   if (arg === "--progress") {
     progressPath = rawArgs[i + 1];
+    i += 1;
+    continue;
+  }
+  if (arg.startsWith("--port=")) {
+    dashboardPort = parseInt(arg.split("=").slice(1).join("="), 10);
+    continue;
+  }
+  if (arg === "--port") {
+    dashboardPort = parseInt(rawArgs[i + 1], 10);
+    i += 1;
+    continue;
+  }
+  if (arg.startsWith("--host=")) {
+    dashboardHost = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  if (arg === "--host") {
+    dashboardHost = rawArgs[i + 1];
+    i += 1;
+    continue;
+  }
+  if (arg === "--open") {
+    dashboardOpen = true;
+    continue;
+  }
+  if (arg.startsWith("--projects=")) {
+    dashboardProjects = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  if (arg === "--projects") {
+    dashboardProjects = rawArgs[i + 1];
     i += 1;
     continue;
   }
@@ -575,6 +617,83 @@ async function main() {
     const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
     fs.appendFileSync(activityLog, `[${stamp}] ${message}\n`);
     process.exit(0);
+  }
+
+  if (cmd === "dashboard") {
+    const dashboardServerPath = path.join(repoRoot, "dashboard", "server", "dist", "index.js");
+    const projectManagerPath = path.join(repoRoot, "dashboard", "server", "dist", "services", "projectManager.js");
+
+    if (!exists(dashboardServerPath)) {
+      console.error("Dashboard server not found. Run 'npm run build' in dashboard/server first.");
+      process.exit(1);
+    }
+
+    const { startServer, shutdown, server } = require(dashboardServerPath);
+    const { registerProject, isValidRalphProject } = require(projectManagerPath);
+
+    // Auto-register cwd if it's a Ralph project (.ralph/ exists)
+    const cwdRalphDir = path.join(cwd, ".ralph");
+    if (exists(cwdRalphDir)) {
+      registerProject(cwd).then((result) => {
+        if (result.success) {
+          console.log(`Auto-registered current directory: ${cwd}`);
+        }
+        // If already registered, that's fine - no error message needed
+      }).catch(() => {
+        // Ignore registration errors during startup
+      });
+    }
+
+    // Register projects from --projects option
+    if (dashboardProjects) {
+      const projectPaths = dashboardProjects.split(",").map((p) => p.trim()).filter(Boolean);
+      for (const projectPath of projectPaths) {
+        const absolutePath = path.isAbsolute(projectPath) ? projectPath : path.resolve(cwd, projectPath);
+        registerProject(absolutePath).then((result) => {
+          if (result.success) {
+            console.log(`Registered project: ${absolutePath}`);
+          } else {
+            console.warn(`Failed to register project: ${result.error}`);
+          }
+        }).catch((err) => {
+          console.warn(`Failed to register project ${absolutePath}: ${err.message}`);
+        });
+      }
+    }
+
+    // Start the server
+    const port = dashboardPort || 4242;
+    const host = dashboardHost || "localhost";
+    const serverUrl = `http://${host}:${port}`;
+
+    server.listen(port, host, () => {
+      console.log(`Ralph Dashboard server running at ${serverUrl}`);
+      console.log("Press Ctrl+C to stop the server.");
+
+      // Open browser if --open flag is set
+      if (dashboardOpen) {
+        const openCommand =
+          process.platform === "darwin" ? "open" :
+          process.platform === "win32" ? "start" : "xdg-open";
+        spawnSync(openCommand, [serverUrl], { shell: true, stdio: "ignore" });
+      }
+    });
+
+    // Handle graceful shutdown on SIGINT
+    process.on("SIGINT", () => {
+      console.log("\nShutting down gracefully...");
+      shutdown();
+      process.exit(0);
+    });
+
+    process.on("SIGTERM", () => {
+      console.log("Received SIGTERM, shutting down...");
+      shutdown();
+      process.exit(0);
+    });
+
+    // Keep the process running
+    return;
   }
 
   if (cmd === "prd") {

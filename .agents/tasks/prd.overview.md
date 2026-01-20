@@ -1,7 +1,7 @@
 # PRD Overview: Ralph Dashboard
 
 - File: .agents\tasks\prd.json
-- Stories: 23 total (13 open, 2 in_progress, 8 done)
+- Stories: 23 total (14 open, 1 in_progress, 8 done)
 
 ## Quality Gates
 - npm run typecheck
@@ -19,7 +19,7 @@
 - [done] US-008: REST API endpoints for runs and logs (depends on: US-003, US-007)
 - [open] US-009: CLI command: ralph dashboard (depends on: US-002, US-006, US-007, US-008)
 - [done] US-010: Frontend: Vite React app shell (depends on: US-001)
-- [in_progress] US-011: Frontend: Zustand store and WebSocket hook (depends on: US-010)
+- [open] US-011: Frontend: Zustand store and WebSocket hook (depends on: US-010)
 - [open] US-012: Frontend: API client and data fetching (depends on: US-011)
 - [open] US-013: Frontend: Projects list view (depends on: US-012)
 - [open] US-014: Frontend: Project detail layout with tabs (depends on: US-013)
