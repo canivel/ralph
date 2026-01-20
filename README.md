@@ -199,8 +199,69 @@ The build loop automatically updates story status:
 | `open` | Available for selection |
 | `in_progress` | Currently being worked on (with `startedAt`) |
 | `done` | Completed (with `completedAt`) |
+| `blocked` | Too many failures (with `blockedReason`) |
 
 If a loop crashes while a story is `in_progress`, set `STALE_SECONDS` in config to auto-reopen stalled stories.
+
+## Error Handling & Retry
+
+Ralph includes robust error handling for transient failures:
+
+### Automatic Retry
+
+When the agent fails with a transient error (API timeouts, rate limits, connection resets), Ralph automatically retries:
+
+```
+╔═══════════════════════════════════════════════════════════╗
+║  Transient error detected, retrying (1/3)...
+╚═══════════════════════════════════════════════════════════╝
+```
+
+Detected transient errors:
+- "No messages returned" (Claude CLI)
+- Rate limit errors
+- API overload errors
+- Connection resets (ECONNRESET, ETIMEDOUT)
+- Socket hang up
+
+### Story Blocking
+
+If a story fails repeatedly (default: 3 times), it's automatically marked as `blocked`:
+
+```json
+{
+  "id": "US-001",
+  "status": "blocked",
+  "blockedReason": "Failed 3 times"
+}
+```
+
+Blocked stories are skipped in subsequent iterations. To retry a blocked story, manually change its status back to `open` in the PRD JSON.
+
+### Git Cleanup
+
+When an iteration fails, Ralph automatically cleans up uncommitted changes to prevent polluting the next iteration:
+
+```bash
+# Automatic cleanup on failure
+git checkout -- .
+git clean -fd
+```
+
+### Configuration
+
+Control retry behavior in `.agents/ralph/config.sh`:
+
+```bash
+# Number of retries per iteration for transient errors (default: 3)
+MAX_RETRIES=3
+
+# Delay between retries in seconds (default: 5)
+RETRY_DELAY=5
+
+# Max failures before blocking a story (default: 3)
+MAX_STORY_FAILURES=3
+```
 
 ## State Files
 

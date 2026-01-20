@@ -59,6 +59,9 @@ fi
 DEFAULT_MAX_ITERATIONS=25
 DEFAULT_NO_COMMIT=false
 DEFAULT_STALE_SECONDS=0
+DEFAULT_MAX_RETRIES=3
+DEFAULT_RETRY_DELAY=5
+DEFAULT_MAX_STORY_FAILURES=3
 PRD_REQUEST_PATH=""
 PRD_INLINE=""
 
@@ -124,6 +127,9 @@ AGENT_CMD="${AGENT_CMD:-$DEFAULT_AGENT_CMD}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-$DEFAULT_MAX_ITERATIONS}"
 NO_COMMIT="${NO_COMMIT:-$DEFAULT_NO_COMMIT}"
 STALE_SECONDS="${STALE_SECONDS:-$DEFAULT_STALE_SECONDS}"
+MAX_RETRIES="${MAX_RETRIES:-$DEFAULT_MAX_RETRIES}"
+RETRY_DELAY="${RETRY_DELAY:-$DEFAULT_RETRY_DELAY}"
+MAX_STORY_FAILURES="${MAX_STORY_FAILURES:-$DEFAULT_MAX_STORY_FAILURES}"
 
 abs_path() {
   local p="$1"
@@ -415,7 +421,7 @@ render_prompt() {
   local iter="$6"
   local run_log="$7"
   local run_meta="$8"
-  $PYTHON_CMD - "$src" "$dst" "$PRD_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" <<'PY'
+  $PYTHON_CMD - "$src" "$dst" "$PRD_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" "$RUNS_DIR" <<'PY'
 import sys
 from pathlib import Path
 
@@ -434,6 +440,7 @@ run_id = sys.argv[16] if len(sys.argv) > 16 else ""
 iteration = sys.argv[17] if len(sys.argv) > 17 else ""
 run_log = sys.argv[18] if len(sys.argv) > 18 else ""
 run_meta = sys.argv[19] if len(sys.argv) > 19 else ""
+runs_dir = sys.argv[20] if len(sys.argv) > 20 else ""
 repl = {
     "PRD_PATH": prd,
     "AGENTS_PATH": agents,
@@ -450,6 +457,7 @@ repl = {
     "ITERATION": iteration,
     "RUN_LOG_PATH": run_log,
     "RUN_META_PATH": run_meta,
+    "RUNS_DIR": runs_dir,
 }
 story = {"id": "", "title": "", "block": ""}
 quality_gates = []
@@ -577,9 +585,10 @@ with prd_path.open("r+", encoding="utf-8") as fh:
                 candidate = story
                 break
 
+        # Count remaining stories (excluding done and blocked)
         remaining = sum(
             1 for story in stories
-            if isinstance(story, dict) and normalize_status(story.get("status")) != "done"
+            if isinstance(story, dict) and normalize_status(story.get("status")) not in ("done", "blocked")
         )
 
         meta = {
@@ -680,9 +689,10 @@ def normalize_status(value):
         return "open"
     return str(value).strip().lower()
 
+# Count remaining stories (excluding done and blocked)
 remaining = sum(
     1 for story in stories
-    if isinstance(story, dict) and normalize_status(story.get("status")) != "done"
+    if isinstance(story, dict) and normalize_status(story.get("status")) not in ("done", "blocked")
 )
 print(remaining)
 PY
@@ -777,6 +787,143 @@ log_error() {
   local timestamp
   timestamp=$(date '+%Y-%m-%d %H:%M:%S')
   echo "[$timestamp] $message" >> "$ERRORS_LOG_PATH"
+}
+
+# Check if the log file contains a transient/retryable error
+is_transient_error() {
+  local log_file="$1"
+  if [ ! -f "$log_file" ]; then
+    return 1
+  fi
+  # Known transient errors that should trigger retry
+  if grep -q "No messages returned" "$log_file"; then
+    return 0
+  fi
+  if grep -q "rate_limit_error" "$log_file"; then
+    return 0
+  fi
+  if grep -q "overloaded_error" "$log_file"; then
+    return 0
+  fi
+  if grep -q "ECONNRESET" "$log_file"; then
+    return 0
+  fi
+  if grep -q "ETIMEDOUT" "$log_file"; then
+    return 0
+  fi
+  if grep -q "socket hang up" "$log_file"; then
+    return 0
+  fi
+  if grep -q "API error" "$log_file"; then
+    return 0
+  fi
+  return 1
+}
+
+# Clean up uncommitted changes after failed iteration
+git_cleanup_dirty() {
+  if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    local dirty
+    dirty="$(git -C "$ROOT_DIR" status --porcelain 2>/dev/null || true)"
+    if [ -n "$dirty" ]; then
+      echo "Cleaning up uncommitted changes from failed iteration..."
+      git -C "$ROOT_DIR" checkout -- . 2>/dev/null || true
+      git -C "$ROOT_DIR" clean -fd 2>/dev/null || true
+    fi
+  fi
+}
+
+# Track story failure counts (stored in temp file)
+STORY_FAILURES_FILE="$TMP_DIR/story-failures-$$.json"
+
+init_story_failures() {
+  echo "{}" > "$STORY_FAILURES_FILE"
+}
+
+get_story_failure_count() {
+  local story_id="$1"
+  if [ ! -f "$STORY_FAILURES_FILE" ]; then
+    echo "0"
+    return
+  fi
+  $PYTHON_CMD - "$STORY_FAILURES_FILE" "$story_id" <<'PY'
+import json
+import sys
+from pathlib import Path
+try:
+    data = json.loads(Path(sys.argv[1]).read_text())
+    print(data.get(sys.argv[2], 0))
+except Exception:
+    print("0")
+PY
+}
+
+increment_story_failure() {
+  local story_id="$1"
+  $PYTHON_CMD - "$STORY_FAILURES_FILE" "$story_id" <<'PY'
+import json
+import sys
+from pathlib import Path
+path = Path(sys.argv[1])
+story_id = sys.argv[2]
+try:
+    data = json.loads(path.read_text())
+except Exception:
+    data = {}
+data[story_id] = data.get(story_id, 0) + 1
+path.write_text(json.dumps(data))
+PY
+}
+
+# Mark a story as blocked (too many failures) in PRD
+mark_story_blocked() {
+  local story_id="$1"
+  local reason="$2"
+  $PYTHON_CMD - "$PRD_PATH" "$story_id" "$reason" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+from datetime import datetime, timezone
+try:
+    import fcntl
+except Exception:
+    fcntl = None
+
+prd_path = Path(sys.argv[1])
+story_id = sys.argv[2]
+reason = sys.argv[3] if len(sys.argv) > 3 else "Too many failures"
+
+if not story_id or not prd_path.exists():
+    sys.exit(0)
+
+def now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+with prd_path.open("r+", encoding="utf-8") as fh:
+    if fcntl is not None:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+    try:
+        data = json.load(fh)
+        stories = data.get("stories") if isinstance(data, dict) else None
+        if not isinstance(stories, list):
+            sys.exit(0)
+        for story in stories:
+            if isinstance(story, dict) and story.get("id") == story_id:
+                story["status"] = "blocked"
+                story["blockedReason"] = reason
+                story["updatedAt"] = now_iso()
+                break
+        fh.seek(0)
+        fh.truncate()
+        json.dump(data, fh, indent=2)
+        fh.write("\n")
+        fh.flush()
+        os.fsync(fh.fileno())
+    finally:
+        if fcntl is not None:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+PY
 }
 
 append_run_summary() {
@@ -907,8 +1054,13 @@ git_dirty_files() {
 
 echo "Ralph mode: $MODE"
 echo "Max iterations: $MAX_ITERATIONS"
+echo "Max retries per iteration: $MAX_RETRIES"
+echo "Max story failures before blocking: $MAX_STORY_FAILURES"
 echo "PRD: $PRD_PATH"
 HAS_ERROR="false"
+
+# Initialize story failure tracking
+init_story_failures
 
 for i in $(seq 1 "$MAX_ITERATIONS"); do
   echo ""
@@ -939,6 +1091,15 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
       echo "No actionable open stories (all blocked or in progress). Remaining: $REMAINING"
       exit 0
     fi
+
+    # Check if this story has failed too many times
+    STORY_FAILURES="$(get_story_failure_count "$STORY_ID")"
+    if [ "$STORY_FAILURES" -ge "$MAX_STORY_FAILURES" ]; then
+      echo "Story $STORY_ID has failed $STORY_FAILURES times, marking as blocked."
+      mark_story_blocked "$STORY_ID" "Failed $STORY_FAILURES times"
+      log_error "Story $STORY_ID blocked after $STORY_FAILURES failures"
+      continue
+    fi
   fi
 
   HEAD_BEFORE="$(git_head)"
@@ -952,30 +1113,63 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   else
     log_activity "ITERATION $i start (mode=$MODE)"
   fi
-  set +e
-  if [ "${RALPH_DRY_RUN:-}" = "1" ]; then
-    echo "[RALPH_DRY_RUN] Skipping agent execution." | tee "$LOG_FILE"
-    CMD_STATUS=0
-  else
-    # Run agent - capture output to log file while displaying to terminal
-    # Note: On some systems, piping through tee can cause buffering issues
-    # with interactive CLIs like Claude. If you see no output, the agent
-    # is still running - check the log file for captured output.
-    run_agent "$PROMPT_RENDERED" 2>&1 | tee "$LOG_FILE"
-    CMD_STATUS=${PIPESTATUS[0]}
-  fi
-  set -e
-  if [ "$CMD_STATUS" -eq 130 ] || [ "$CMD_STATUS" -eq 143 ]; then
-    echo "Interrupted."
-    exit "$CMD_STATUS"
-  fi
+
+  # Retry loop for transient errors
+  RETRY_COUNT=0
+  CMD_STATUS=1
+  while [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ]; do
+    set +e
+    if [ "${RALPH_DRY_RUN:-}" = "1" ]; then
+      echo "[RALPH_DRY_RUN] Skipping agent execution." | tee "$LOG_FILE"
+      CMD_STATUS=0
+    else
+      # Run agent - capture output to log file while displaying to terminal
+      # Note: On some systems, piping through tee can cause buffering issues
+      # with interactive CLIs like Claude. If you see no output, the agent
+      # is still running - check the log file for captured output.
+      run_agent "$PROMPT_RENDERED" 2>&1 | tee "$LOG_FILE"
+      CMD_STATUS=${PIPESTATUS[0]}
+    fi
+    set -e
+
+    # Check for user interrupt
+    if [ "$CMD_STATUS" -eq 130 ] || [ "$CMD_STATUS" -eq 143 ]; then
+      echo "Interrupted."
+      exit "$CMD_STATUS"
+    fi
+
+    # If command succeeded, break retry loop
+    if [ "$CMD_STATUS" -eq 0 ]; then
+      break
+    fi
+
+    # Check if this is a transient error worth retrying
+    if is_transient_error "$LOG_FILE"; then
+      RETRY_COUNT=$((RETRY_COUNT + 1))
+      if [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ]; then
+        echo ""
+        echo "╔═══════════════════════════════════════════════════════╗"
+        echo "║  Transient error detected, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
+        echo "╚═══════════════════════════════════════════════════════╝"
+        log_activity "ITERATION $i retry $RETRY_COUNT (transient error)"
+        # Clean up any dirty state before retry
+        git_cleanup_dirty
+        sleep "$RETRY_DELAY"
+        continue
+      fi
+    fi
+
+    # Non-transient error or max retries reached
+    break
+  done
+
   ITER_END=$(date +%s)
   ITER_END_FMT=$(date '+%Y-%m-%d %H:%M:%S')
   ITER_DURATION=$((ITER_END - ITER_START))
   HEAD_AFTER="$(git_head)"
   log_activity "ITERATION $i end (duration=${ITER_DURATION}s)"
   if [ "$CMD_STATUS" -ne 0 ]; then
-    log_error "ITERATION $i command failed (status=$CMD_STATUS)"
+    log_error "ITERATION $i command failed (status=$CMD_STATUS) after $((RETRY_COUNT)) retries"
     HAS_ERROR="true"
   fi
   COMMIT_LIST="$(git_commit_list "$HEAD_BEFORE" "$HEAD_AFTER")"
@@ -987,10 +1181,14 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   fi
   if [ "$MODE" = "build" ] && [ "$NO_COMMIT" = "false" ] && [ -n "$DIRTY_FILES" ]; then
     log_error "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
+    # Clean up dirty state on failure to prevent polluting next iteration
+    if [ "$CMD_STATUS" -ne 0 ]; then
+      git_cleanup_dirty
+    fi
   fi
   write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES"
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
-    append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | story=$STORY_ID | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
+    append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | story=$STORY_ID | duration=${ITER_DURATION}s | status=$STATUS_LABEL | retries=$RETRY_COUNT"
   else
     append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
   fi
@@ -998,14 +1196,31 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   if [ "$MODE" = "build" ]; then
     if [ "$CMD_STATUS" -ne 0 ]; then
       log_error "ITERATION $i exited non-zero; review $LOG_FILE"
-      update_story_status "$STORY_ID" "open"
-      echo "Iteration failed; story reset to open."
+      increment_story_failure "$STORY_ID"
+      STORY_FAILURES="$(get_story_failure_count "$STORY_ID")"
+      if [ "$STORY_FAILURES" -ge "$MAX_STORY_FAILURES" ]; then
+        echo "Story $STORY_ID has now failed $STORY_FAILURES times, marking as blocked."
+        mark_story_blocked "$STORY_ID" "Failed $STORY_FAILURES times"
+        log_error "Story $STORY_ID blocked after $STORY_FAILURES consecutive failures"
+      else
+        update_story_status "$STORY_ID" "open"
+        echo "Iteration failed (attempt $STORY_FAILURES/$MAX_STORY_FAILURES); story reset to open."
+      fi
     elif grep -q "<promise>COMPLETE</promise>" "$LOG_FILE"; then
       update_story_status "$STORY_ID" "done"
       echo "Completion signal received; story marked done."
     else
-      update_story_status "$STORY_ID" "open"
-      echo "No completion signal; story reset to open."
+      # No completion signal - could be agent didn't finish or didn't output signal
+      increment_story_failure "$STORY_ID"
+      STORY_FAILURES="$(get_story_failure_count "$STORY_ID")"
+      if [ "$STORY_FAILURES" -ge "$MAX_STORY_FAILURES" ]; then
+        echo "Story $STORY_ID has failed $STORY_FAILURES times (no completion signal), marking as blocked."
+        mark_story_blocked "$STORY_ID" "No completion signal after $STORY_FAILURES attempts"
+        log_error "Story $STORY_ID blocked: no completion signal after $STORY_FAILURES attempts"
+      else
+        update_story_status "$STORY_ID" "open"
+        echo "No completion signal (attempt $STORY_FAILURES/$MAX_STORY_FAILURES); story reset to open."
+      fi
     fi
     REMAINING="$(remaining_from_prd)"
     echo "Iteration $i complete. Remaining stories: $REMAINING"

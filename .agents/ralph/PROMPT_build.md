@@ -5,7 +5,8 @@ You are an autonomous coding agent. Your task is to complete the work for exactl
 ## Paths
 - PRD: {{PRD_PATH}}
 - AGENTS (optional): {{AGENTS_PATH}}
-- Progress Log: {{PROGRESS_PATH}}
+- Progress Log: {{PROGRESS_PATH}} (patterns + recent summaries only)
+- Runs Directory: {{RUNS_DIR}} (detailed per-iteration logs)
 - Guardrails: {{GUARDRAILS_PATH}}
 - Guardrails Reference: {{GUARDRAILS_REF}}
 - Context Reference: {{CONTEXT_REF}}
@@ -47,50 +48,49 @@ If the story details are empty or missing, STOP and report that the PRD story fo
 1. Read {{GUARDRAILS_PATH}} before any code changes.
 2. Read {{ERRORS_LOG_PATH}} for repeated failures to avoid.
 3. Read {{PRD_PATH}} for global context (do not edit).
-4. Fully audit and read all necessary files to understand the task end-to-end before implementing. Do not assume missing functionality.
-5. If {{AGENTS_PATH}} exists, follow its build/test instructions.
-6. Implement only the tasks that belong to {{STORY_ID}}.
-7. Run verification commands listed in the story, the global quality gates, and in {{AGENTS_PATH}} (if required).
-8. If the project has a build or dev workflow, run what applies:
-   - Build step (e.g., `npm run build`) if defined.
-   - Dev server (e.g., `npm run dev`, `wrangler dev`) if it is the normal validation path.
-   - Confirm no runtime/build errors in the console.
-9. Perform a brief audit before committing:
-   - **Security:** check for obvious vulnerabilities or unsafe handling introduced by your changes.
-   - **Performance:** check for avoidable regressions (extra queries, heavy loops, unnecessary re-renders).
-   - **Regression:** verify existing behavior that could be impacted still works.
-10. If No-commit is false, commit changes using the `$commit` skill.
+4. Read {{PROGRESS_PATH}} for codebase patterns and recent story context.
+5. If you need details about a previous story's implementation, check {{RUNS_DIR}} for the relevant run summary files (e.g., `run-*-iter-*.md`).
+6. Fully audit and read all necessary files to understand the task end-to-end before implementing. Do not assume missing functionality.
+7. If {{AGENTS_PATH}} exists, follow its build/test instructions.
+8. Implement only the tasks that belong to {{STORY_ID}}.
+9. Run verification commands listed in the story, the global quality gates, and in {{AGENTS_PATH}} (if required).
+10. If the project has a build or dev workflow, run what applies:
+    - Build step (e.g., `npm run build`) if defined.
+    - Dev server (e.g., `npm run dev`, `wrangler dev`) if it is the normal validation path.
+    - Confirm no runtime/build errors in the console.
+11. Perform a brief audit before committing:
+    - **Security:** check for obvious vulnerabilities or unsafe handling introduced by your changes.
+    - **Performance:** check for avoidable regressions (extra queries, heavy loops, unnecessary re-renders).
+    - **Regression:** verify existing behavior that could be impacted still works.
+12. If No-commit is false, commit changes using the `$commit` skill.
     - Stage everything: `git add -A`
     - Confirm a clean working tree after commit: `git status --porcelain` should be empty.
     - After committing, capture the commit hash and subject using:
       `git show -s --format="%h %s" HEAD`.
-11. Append a progress entry to {{PROGRESS_PATH}} with run/commit/test details (format below).
-    If No-commit is true, skip committing and note it in the progress entry.
+13. Update {{PROGRESS_PATH}} - see Progress Entry Format below.
 
-## Progress Entry Format (Append Only)
+## Progress Entry Format
+
+The progress log has two sections. Only modify the relevant section.
+
+### Section 1: Codebase Patterns (Top of File)
+Add reusable patterns discovered during implementation. These persist across all stories.
 ```
-## [Date/Time] - {{STORY_ID}}: {{STORY_TITLE}}
-Thread: [codex exec session id if available, otherwise leave blank]
-Run: {{RUN_ID}} (iteration {{ITERATION}})
-Run log: {{RUN_LOG_PATH}}
-Run summary: {{RUN_META_PATH}}
-- Guardrails reviewed: yes
-- No-commit run: {{NO_COMMIT}}
-- Commit: <hash> <subject> (or `none` + reason)
-- Post-commit status: `clean` or list remaining files
-- Verification:
-  - Command: <exact command> -> PASS/FAIL
-  - Command: <exact command> -> PASS/FAIL
-- Files changed:
-  - <file path>
-  - <file path>
-- What was implemented
-- **Learnings for future iterations:**
-  - Patterns discovered
-  - Gotchas encountered
-  - Useful context
----
+## Codebase Patterns
+- Pattern: <brief description>
+- Pattern: <brief description>
 ```
+
+### Section 2: Recent Story Summaries (Bottom of File)
+Add a **brief** summary (3-5 lines max) after completing a story. Keep only essential context.
+```
+### {{STORY_ID}}: {{STORY_TITLE}}
+- Commit: <hash> <subject>
+- Key files: <main files changed>
+- Notes: <anything the next iteration needs to know>
+```
+
+**Important:** Detailed logs (verification output, full file lists, learnings) go in {{RUN_META_PATH}}, NOT in progress.md. The progress log should stay under 100 lines total.
 
 ## Completion Signal
 Only output the completion signal when the **selected story** is fully complete and verified.
