@@ -500,7 +500,7 @@
         "US-019",
         "US-020"
       ],
-      "status": "in_progress",
+      "status": "done",
       "startedAt": "2026-01-20T19:40:10.527037+00:00",
       "completedAt": null,
       "updatedAt": "2026-01-20T19:40:10.527046+00:00"
@@ -522,7 +522,10 @@
         "US-021",
         "US-022"
       ],
-      "status": "open"
+      "status": "in_progress",
+      "startedAt": "2026-01-20T19:57:25.431795+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-01-20T19:57:25.431810+00:00"
     }
   ]
 }

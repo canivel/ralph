@@ -88,6 +88,7 @@ Ralph Configuration
 | `ralph overview` | Generate human-readable overview from PRD |
 | `ralph ping` | Health check for agent connectivity |
 | `ralph log "<message>"` | Append to activity log |
+| `ralph dashboard` | Start the Ralph dashboard web server |
 | `ralph help` | Show help message |
 
 ### Options
@@ -274,6 +275,52 @@ All state is stored in `.ralph/` in your project:
 | `activity.log` | Activity and timing log |
 | `errors.log` | Repeated failures and notes |
 | `runs/` | Raw run logs and summaries |
+
+## Dashboard
+
+Ralph includes a web-based dashboard for monitoring multiple projects running in parallel.
+
+### Starting the Dashboard
+
+```bash
+# Start dashboard on default port (4242)
+ralph dashboard
+
+# Custom port
+ralph dashboard --port 8080
+
+# Auto-open browser
+ralph dashboard --open
+
+# Register multiple projects
+ralph dashboard --projects /path/to/project1,/path/to/project2
+```
+
+### Dashboard Options
+
+| Option | Description |
+|--------|-------------|
+| `--port <number>` | Port to run the server on (default: 4242) |
+| `--host <hostname>` | Host to bind to (default: localhost) |
+| `--open` | Open browser automatically after starting |
+| `--projects <paths>` | Comma-separated project paths to register |
+
+### Features
+
+- **Real-time Updates** - WebSocket-based live updates when files change
+- **Project Overview** - See all registered projects with story progress
+- **Kanban Board** - Visualize stories by status (Open/In Progress/Done)
+- **Run History** - View all iteration runs with duration and status
+- **Log Viewer** - Browse activity logs, error logs, and run logs
+- **Progress Tracking** - View progress.md with collapsible story sections
+- **Guardrails** - View guardrails.md with highlighted Sign entries
+- **Metrics** - Charts showing completion rate, iteration durations, and more
+
+### Dashboard Screenshots
+
+<!-- Screenshots placeholder - add actual screenshots when available -->
+
+The dashboard automatically registers the current directory if it contains a `.ralph/` folder. Additional projects can be registered via the UI or command line.
 
 ## Advanced
 

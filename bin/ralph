@@ -104,6 +104,43 @@ Notes:
 `);
 }
 
+/**
+ * Show detailed help for the dashboard command
+ */
+function dashboardUsage() {
+  console.log(`ralph dashboard - Start the Ralph dashboard web server
+
+Usage:
+  ralph dashboard [options]
+
+Options:
+  --port <number>      Port to run the server on (default: 4242)
+  --host <hostname>    Host to bind to (default: localhost)
+  --open               Open browser automatically after starting
+  --projects <paths>   Comma-separated project paths to register
+
+Description:
+  Starts a web-based dashboard for monitoring Ralph projects in real-time.
+  The dashboard provides:
+
+  - Project Overview: See all registered projects with story progress
+  - Kanban Board: Visualize stories by status (Open/In Progress/Done)
+  - Run History: View all iteration runs with duration and status
+  - Log Viewer: Browse activity logs, error logs, and run logs
+  - Progress Tracking: View progress.md with collapsible story sections
+  - Guardrails: View guardrails.md with highlighted Sign entries
+  - Metrics: Charts showing completion rate, iteration durations, and more
+
+  The current directory is auto-registered if it contains a .ralph/ folder.
+
+Examples:
+  ralph dashboard                    # Start on port 4242
+  ralph dashboard --port 8080        # Start on custom port
+  ralph dashboard --open             # Start and open browser
+  ralph dashboard --projects /a,/b   # Register multiple projects
+`);
+}
+
 function getGlobalConfigPath() {
   return path.join(os.homedir(), ".ralph", "config.json");
 }
@@ -620,6 +657,12 @@ async function main() {
   }
 
   if (cmd === "dashboard") {
+    // Handle dashboard --help
+    if (args.includes("--help") || args.includes("-h")) {
+      dashboardUsage();
+      process.exit(0);
+    }
+
     const dashboardServerPath = path.join(repoRoot, "dashboard", "server", "dist", "index.js");
     const projectManagerPath = path.join(repoRoot, "dashboard", "server", "dist", "services", "projectManager.js");
 

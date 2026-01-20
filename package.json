@@ -6,7 +6,8 @@
     "ralph": "bin/ralph"
   },
   "scripts": {
-    "test": "node tests/cli-smoke.mjs && node tests/agent-loops.mjs",
+    "test": "node tests/cli-smoke.mjs && node tests/agent-loops.mjs && node tests/dashboard-parsers.mjs && node tests/dashboard-project-manager.mjs && node tests/dashboard-api.mjs",
+    "test:dashboard": "node tests/dashboard-parsers.mjs && node tests/dashboard-project-manager.mjs && node tests/dashboard-api.mjs",
     "test:real": "node tests/real-agents.mjs",
     "test:ping": "node tests/agent-ping.mjs",
     "typecheck": "tsc --noEmit -p dashboard/server/tsconfig.json",
