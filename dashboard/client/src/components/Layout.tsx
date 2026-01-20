@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useProjectStore } from '@/stores/projectStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useConnectionToast } from '@/hooks/useConnectionToast';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -83,8 +84,8 @@ function ConnectionStatus() {
         </>
       ) : (
         <>
-          <WifiOff className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Disconnected</span>
+          <WifiOff className="h-4 w-4 text-destructive" />
+          <span className="text-xs text-destructive">Disconnected</span>
         </>
       )}
     </div>
@@ -94,6 +95,8 @@ function ConnectionStatus() {
 function Header() {
   // Initialize WebSocket connection at the layout level
   useWebSocket();
+  // Show toast notifications for connection changes
+  useConnectionToast();
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4">

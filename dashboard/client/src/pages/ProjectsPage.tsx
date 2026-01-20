@@ -1,8 +1,10 @@
-import { FolderOpen, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { FolderOpen, AlertCircle, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ProjectCard } from '@/components/ProjectCard';
 import { AddProjectDialog } from '@/components/AddProjectDialog';
+import { ProjectCardsGridSkeleton } from '@/components/skeletons';
 import { useProjects } from '@/hooks/useApi';
 
 function EmptyState() {
@@ -16,21 +18,10 @@ function EmptyState() {
           directory can be added for real-time updates.
         </CardDescription>
         <div className="mt-6">
-          <AddProjectDialog />
+          <AddProjectDialog onSuccess={() => toast.success('Project added successfully')} />
         </div>
       </CardHeader>
     </Card>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="flex items-center justify-center py-20">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Loading projects...</p>
-      </div>
-    </div>
   );
 }
 
@@ -57,6 +48,10 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 export function ProjectsPage() {
   const { data: projects, isLoading, error, refetch } = useProjects();
 
+  const handleProjectAdded = () => {
+    toast.success('Project added successfully');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -66,10 +61,12 @@ export function ProjectsPage() {
             Monitor your Ralph agent projects in real-time.
           </p>
         </div>
-        {projects && projects.length > 0 && <AddProjectDialog />}
+        {projects && projects.length > 0 && (
+          <AddProjectDialog onSuccess={handleProjectAdded} />
+        )}
       </div>
 
-      {isLoading && <LoadingState />}
+      {isLoading && <ProjectCardsGridSkeleton count={3} />}
 
       {error && !isLoading && <ErrorState message={error} onRetry={refetch} />}
 
