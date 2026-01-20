@@ -1,7 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, FolderOpen } from 'lucide-react';
+import { Home, FolderOpen, Wifi, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useProjectStore } from '@/stores/projectStore';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -64,7 +66,35 @@ function Sidebar() {
   );
 }
 
+function ConnectionStatus() {
+  const connectionStatus = useProjectStore((state) => state.connectionStatus);
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {connectionStatus === 'connected' ? (
+        <>
+          <Wifi className="h-4 w-4 text-green-500" />
+          <span className="text-xs text-green-500">Connected</span>
+        </>
+      ) : connectionStatus === 'connecting' ? (
+        <>
+          <Wifi className="h-4 w-4 text-yellow-500 animate-pulse" />
+          <span className="text-xs text-yellow-500">Connecting...</span>
+        </>
+      ) : (
+        <>
+          <WifiOff className="h-4 w-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Disconnected</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Header() {
+  // Initialize WebSocket connection at the layout level
+  useWebSocket();
+
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4">
       <div className="flex items-center gap-2">
@@ -72,7 +102,8 @@ function Header() {
           Ralph Agent Monitor
         </span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
+        <ConnectionStatus />
         <ThemeToggle />
       </div>
     </header>
