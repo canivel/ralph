@@ -1,6 +1,6 @@
 {
   "name": "@canivel/ralph",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Minimal, file-based agent loop for autonomous coding. Fork with improved Claude support and first-run configuration.",
   "bin": {
     "ralph": "bin/ralph"
