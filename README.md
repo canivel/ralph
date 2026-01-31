@@ -8,6 +8,16 @@ Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration 
 
 ## What's New in This Fork
 
+### Latest Updates
+
+- **Web Dashboard** - Real-time monitoring UI for managing multiple projects from a single interface (`ralph dashboard`) -- see [Dashboard](#dashboard)
+- **Automatic Retry** - Transient errors (API timeouts, rate limits) trigger automatic retries with exponential backoff
+- **Story Blocking** - Stories that fail repeatedly are automatically blocked to prevent infinite loops
+- **Git Cleanup** - Failed iterations automatically clean up uncommitted changes
+- **Lean Progress Log** - Detailed run info moved to `.ralph/runs/`, keeping progress.md concise
+
+### Original Fork Features
+
 - **First-run agent selection** - Prompted to choose your default agent on first use
 - **`ralph config` command** - Reconfigure your default agent anytime
 - **Improved Claude support** - Uses stdin mode (`-p -`) for reliable prompt passing
@@ -278,23 +288,58 @@ All state is stored in `.ralph/` in your project:
 
 ## Dashboard
 
-Ralph includes a web-based dashboard for monitoring multiple projects running in parallel.
+Ralph includes a real-time web dashboard for monitoring and managing multiple projects from a single interface. Track story progress, view Kanban boards, inspect run logs, and watch metrics across all your Ralph projects simultaneously.
 
-### Starting the Dashboard
+![Ralph Dashboard](images/Screenshot%202026-01-31%20094653.png)
+
+### Quick Start
 
 ```bash
-# Start dashboard on default port (4242)
-ralph dashboard
-
-# Custom port
-ralph dashboard --port 8080
-
-# Auto-open browser
+# Start dashboard and open in browser
 ralph dashboard --open
 
-# Register multiple projects
-ralph dashboard --projects /path/to/project1,/path/to/project2
+# The dashboard will be available at http://localhost:4242
 ```
+
+### Managing Multiple Projects
+
+The dashboard is designed as a central hub for all your Ralph projects. You can monitor several autonomous builds running in parallel, each with its own PRD, stories, and progress.
+
+**Registering projects:**
+
+```bash
+# Register multiple projects at launch
+ralph dashboard --projects /path/to/project-a,/path/to/project-b
+
+# The current directory is auto-registered if it contains .ralph/
+cd my-project && ralph dashboard
+```
+
+Projects can also be added from the UI at any time using the "Add Project" button in the sidebar. Any directory containing a `.ralph/` folder is a valid Ralph project.
+
+Once registered, the sidebar lists all projects. Click on a project to see its full detail view with tabs for every aspect of the build.
+
+### Dashboard Tabs
+
+| Tab | What It Shows |
+|-----|---------------|
+| **Overview** | Story progress bar, quality gates, recent activity feed, current iteration status |
+| **Stories** | Kanban board with **Open**, **In Progress**, and **Done** columns. Cards show story ID, title, blocked/dependency status, and elapsed time |
+| **Runs** | Timeline of every iteration with duration, success/failure status, and expandable raw output |
+| **Logs** | Browsable activity log, error log, and per-run logs with search and filtering |
+| **Progress** | Rendered `progress.md` with syntax highlighting and collapsible story sections |
+| **Guardrails** | Rendered `guardrails.md` with color-coded Sign entries |
+| **Metrics** | Charts for completion rate, iteration durations, and success/failure rates over time |
+
+### Key Capabilities
+
+- **Real-time Updates** -- WebSocket-based live updates as files change on disk; no manual refresh needed
+- **Multi-project Support** -- Switch between projects in the sidebar to monitor parallel builds
+- **Story Dependency Tracking** -- Blocked stories show which dependency they are waiting on
+- **Elapsed Time Tracking** -- In-progress and completed stories display elapsed time
+- **Connection Status** -- A visual indicator in the header shows the WebSocket connection state
+- **Dark / Light Mode** -- Toggle between themes
+- **Responsive Design** -- Works on desktop and mobile
 
 ### Dashboard Options
 
@@ -305,22 +350,32 @@ ralph dashboard --projects /path/to/project1,/path/to/project2
 | `--open` | Open browser automatically after starting |
 | `--projects <paths>` | Comma-separated project paths to register |
 
-### Features
+```bash
+# Examples
+ralph dashboard                                          # default port 4242
+ralph dashboard --port 8080                              # custom port
+ralph dashboard --open                                   # auto-open browser
+ralph dashboard --host 0.0.0.0                           # expose on all interfaces
+ralph dashboard --projects ~/app-a,~/app-b,~/app-c       # register three projects
+```
 
-- **Real-time Updates** - WebSocket-based live updates when files change
-- **Project Overview** - See all registered projects with story progress
-- **Kanban Board** - Visualize stories by status (Open/In Progress/Done)
-- **Run History** - View all iteration runs with duration and status
-- **Log Viewer** - Browse activity logs, error logs, and run logs
-- **Progress Tracking** - View progress.md with collapsible story sections
-- **Guardrails** - View guardrails.md with highlighted Sign entries
-- **Metrics** - Charts showing completion rate, iteration durations, and more
+### Tech Stack
 
-### Dashboard Screenshots
+- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts
+- **Backend**: Express, WebSocket (ws), chokidar (file watching)
+- **State**: Zustand for client state management
 
-<!-- Screenshots placeholder - add actual screenshots when available -->
+### Running Dashboard Tests
 
-The dashboard automatically registers the current directory if it contains a `.ralph/` folder. Additional projects can be registered via the UI or command line.
+```bash
+# Run all dashboard tests (113 tests)
+npm run test:dashboard
+
+# Tests cover:
+# - Data parsers (PRD, activity log, errors log, progress.md, guardrails.md)
+# - Project manager service
+# - API endpoints
+```
 
 ## Advanced
 

@@ -10,6 +10,7 @@ import { createServer } from 'http';
 import projectsRouter from './routes/projects.js';
 import runsRouter from './routes/runs.js';
 import logsRouter from './routes/logs.js';
+import filesystemRouter from './routes/filesystem.js';
 import { getWebSocketHub } from './services/websocketHub.js';
 
 const app = express();
@@ -53,6 +54,7 @@ app.get('/api/health', (_req, res) => {
 
 // API routes
 app.use('/api/projects', projectsRouter);
+app.use('/api/filesystem', filesystemRouter);
 
 // Nested routes for project-specific resources
 // These are mounted under /api/projects/:id in the projects router,
