@@ -288,38 +288,36 @@ All state is stored in `.ralph/` in your project:
 
 ## Dashboard
 
-Ralph includes a real-time web dashboard for monitoring and managing multiple projects from a single interface. Track story progress, view Kanban boards, inspect run logs, and watch metrics across all your Ralph projects simultaneously.
-
-![Ralph Dashboard](images/Screenshot%202026-01-31%20094653.png)
-
-### Quick Start
+Ralph includes a real-time web dashboard for monitoring and managing multiple projects from a single interface. Run several autonomous builds in parallel and track all of them from one place.
 
 ```bash
-# Start dashboard and open in browser
 ralph dashboard --open
-
-# The dashboard will be available at http://localhost:4242
 ```
 
 ### Managing Multiple Projects
 
-The dashboard is designed as a central hub for all your Ralph projects. You can monitor several autonomous builds running in parallel, each with its own PRD, stories, and progress.
+The dashboard landing page shows every registered project as a card. Each card displays the project name, path, story completion progress, and last activity time. Click any card to drill into that project's full detail view.
 
-**Registering projects:**
+![Ralph Dashboard — Projects](images/dash-projects.png)
 
-```bash
-# Register multiple projects at launch
-ralph dashboard --projects /path/to/project-a,/path/to/project-b
+**Adding projects:**
 
-# The current directory is auto-registered if it contains .ralph/
-cd my-project && ralph dashboard
-```
+There are three ways to register projects with the dashboard:
 
-Projects can also be added from the UI at any time using the "Add Project" button in the sidebar. Any directory containing a `.ralph/` folder is a valid Ralph project.
+1. **Auto-detect** -- If the current directory contains a `.ralph/` folder, it is registered automatically when you start the dashboard.
+2. **CLI flag** -- Pass multiple project paths at launch:
+   ```bash
+   ralph dashboard --projects ~/project-a,~/project-b,~/project-c
+   ```
+3. **From the UI** -- Click the **Add Project** button in the top-right corner, browse to a directory that contains a `.ralph/` folder, and add it. Projects can be added at any time without restarting the server.
 
-Once registered, the sidebar lists all projects. Click on a project to see its full detail view with tabs for every aspect of the build.
+Any directory with a `.ralph/` folder is a valid Ralph project. You can mix and match projects that use different agents or PRDs.
 
-### Dashboard Tabs
+### Project Detail View
+
+Click a project card to open its detail view. The header shows the project name, status (Idle / Running), path, story progress bar, and run count. Below that, seven tabs give you full visibility into the build.
+
+![Ralph Dashboard — Story Board](images/Screenshot%202026-01-31%20094653.png)
 
 | Tab | What It Shows |
 |-----|---------------|
@@ -327,17 +325,17 @@ Once registered, the sidebar lists all projects. Click on a project to see its f
 | **Stories** | Kanban board with **Open**, **In Progress**, and **Done** columns. Cards show story ID, title, blocked/dependency status, and elapsed time |
 | **Runs** | Timeline of every iteration with duration, success/failure status, and expandable raw output |
 | **Logs** | Browsable activity log, error log, and per-run logs with search and filtering |
-| **Progress** | Rendered `progress.md` with syntax highlighting and collapsible story sections |
+| **Progress** | Rendered `progress.md` with syntax highlighting |
 | **Guardrails** | Rendered `guardrails.md` with color-coded Sign entries |
 | **Metrics** | Charts for completion rate, iteration durations, and success/failure rates over time |
 
 ### Key Capabilities
 
 - **Real-time Updates** -- WebSocket-based live updates as files change on disk; no manual refresh needed
-- **Multi-project Support** -- Switch between projects in the sidebar to monitor parallel builds
-- **Story Dependency Tracking** -- Blocked stories show which dependency they are waiting on
+- **Multi-project Support** -- Switch between projects from the landing page or the sidebar to monitor parallel builds
+- **Story Dependency Tracking** -- Blocked stories show which dependency they are waiting on (e.g. "Waiting on: US-005")
 - **Elapsed Time Tracking** -- In-progress and completed stories display elapsed time
-- **Connection Status** -- A visual indicator in the header shows the WebSocket connection state
+- **Connection Status** -- A live indicator in the header shows the WebSocket connection state
 - **Dark / Light Mode** -- Toggle between themes
 - **Responsive Design** -- Works on desktop and mobile
 
